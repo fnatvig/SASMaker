@@ -24,12 +24,13 @@ Implements the GOOSE state machine and encoding according to IEC 61850-8-1.
 ---
 
 ## 3. `traffic_scenarios` — Define Normal & Abnormal Behavior
-Provides high-level scenario templates for generating realistic sequences.
+Provides high-level scenario templates for generating plausible sequences without requiring a full power system simulator. Uses role/zone–based rules to keep events logically consistent across any number of IEDs and topologies.
 
 **Core classes/functions:**
 - **`Scenario`** – Base class for event sequences.
 - **`NormalOperationScenario`** – Periodic GOOSE alive, occasional events.
-- **`BreakerTripScenario`** – Models a trip event, increments `stNum`, retransmission.
+- **`BreakerTripScenario`** – Trip logic tied to specific role/zone; increments `stNum`, retransmission.
+- **`BusbarFaultScenario`** – Multi-breaker trips with staggered timing, based on zone membership.
 - **`FloodAttackScenario`** – High-rate publish to simulate DoS.
 - **`SpoofScenario`** – Replays stale `stNum`/`sqNum`.
 
