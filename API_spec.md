@@ -67,7 +67,7 @@ scl_builder.export_scd("synthetic_substation.scd")
 # Load SCD into GOOSE generator
 pub = goose_generator.GoosePublisher("synthetic_substation.scd")
 
-# Select a scenario
+# Generate a "normal scenario" for 5 IEDs connected in a star topology
 scenario = traffic_scenarios.NormalOperationScenario(pub)
 
 # Run scenario and save to PCAP
