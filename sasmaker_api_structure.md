@@ -5,10 +5,10 @@ Responsible for creating, cloning, and wiring IEDs, then exporting valid SCD.
 
 **Core classes/functions:**
 - **`SubstationModel`** – In-memory representation of the substation.
-- **`IEDTemplate`** – Loads a generic IID or ICD, stores structure for cloning.
+- **`IEDTemplate`** – Loads a generic IID and stores structure for cloning.
 - **`clone_ied(template, count)`** – Returns N cloned IEDs with unique names and comms.
-- **`connect_ieds(publishers, subscribers, pattern="star"|"ring"|"fullmesh")`** – Auto-generates ExtRefs and dataset subscriptions.
-- **`export_scd(filename)`** – Writes the SCD XML to disk.
+- **`connect_ieds(publishers, subscribers, pattern="star"|"ring"|"fullmesh")`** – Auto-generates ExtRefs and dataset subscriptions. Patterns such as "star" may not be realistic, but could be good for early debugging.  
+- **`export_scd(filename)`** – Writes the resulting SCD file to disk.
 
 ---
 
