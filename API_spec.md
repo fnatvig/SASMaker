@@ -1,4 +1,4 @@
-# SASMaker API Structure
+# SASMaker API Specification
 
 ## 1. `scl_builder` — Build & Manipulate SCL Files
 Responsible for creating, cloning, and wiring IEDs, then exporting valid SCD.
