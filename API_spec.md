@@ -1,14 +1,27 @@
 # SASMaker API Specification
 
-## 1. `scl_builder` — Build & Manipulate SCL Files
-Responsible for creating, cloning, and wiring IEDs, then exporting valid SCD.
+## 1. `scl_builder` — Create Basic SCL Files
+Handles loading an IED template, creating copies, connecting them together, and exporting an SCD file.
 
-**Core classes/functions:**
-- **`SubstationModel`** – In-memory representation of the substation.
-- **`IEDTemplate`** – Loads a generic IID and stores structure for cloning.
-- **`clone_ied(template, count)`** – Returns N cloned IEDs with unique names and comms.
-- **`connect_ieds(publishers, subscribers, pattern="star"|"ring"|"fullmesh")`** – Auto-generates ExtRefs and dataset subscriptions. Patterns such as "star" may not be realistic, but could be good for early debugging.  
-- **`export_scd(filename)`** – Writes the resulting SCD file to disk.
+### Core classes
+- **`IEDTemplate`** — Loads a generic IID file for cloning.
+- **`IED`** — A concrete IED created from the template.
+- **`NetworkGraph`** — Stores a simple list of IEDs and how they're connected.
+
+
+### Main functions
+- **`clone_ied(template: IEDTemplate, count: int) -> list[IED]`**  
+  Creates multiple IEDs from the same template, each with unique names and addresses.
+
+- **`connect_ieds(ieds: list[IED], topology: Literal["star", "ring"] = "star") -> NetworkGraph`**  
+  Connects IEDs in a simple network shape (star or ring) and returns the resulting network graph. 
+
+- **`export_scd(filename: str) -> None`**  
+  Saves the configuration as an SCD file.
+
+### Helper shortcuts
+- **`star(ieds)`** — Connects all IEDs to a single switch.
+- **`ring(ieds)`** — Connects IEDs in a ring.
 
 ---
 
