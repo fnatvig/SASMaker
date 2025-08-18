@@ -1,4 +1,4 @@
-# SASMaker API Specification (v0.2 — Electrically Driven, User‑Configurable)
+# SASMaker v0.1 API Specification 
 
 SASMaker generates **IEC 61850 GOOSE traffic** for **electrically realistic** scenarios by combining an SCL communication model with a **pandapower** power‑system model.
 
@@ -7,10 +7,10 @@ SASMaker generates **IEC 61850 GOOSE traffic** for **electrically realistic** sc
 ## 0) Design Principles & Degrees of Freedom
 - **User chooses number of buses** (electrical nodes). ✅
 - **User chooses number of IEDs** (publishers). ✅
-- **User defines bus connectivity** (lines/transformers) in the power model. ✅
-- **User binds IED roles to elements** (which IED protects which line/bus/trafo). ✅
-- **L2 topology simplified** to **one SubNetwork** in v0.2 (star/ring only for visualization). ⚠️
-- Skip subscribers/`ExtRef` wiring in v0.2; **publishers only** via GoCBs. ⚠️
+- **User defines bus connectivity** (lines in the power model). ✅
+- **User binds IED roles to elements** (which IED protects which line/bus). ✅
+- **L2 topology simplified** to **one SubNetwork** in v0.1 (star/ring only for visualization). ⚠️
+- Skip subscribers/`ExtRef` wiring in v0.1; **publishers only** via GoCBs. ⚠️
 
 ---
 
@@ -23,14 +23,22 @@ Load a template IED, clone N IEDs, optionally visualize star/ring, attach GoCBs,
 - **`NetworkGraph`** — simple list of nodes/edges (for star/ring visualization only).
 
 ### API
-- `clone_ied(template: IEDTemplate, count: int) -> list[IED]`
-- `connect_ieds(ieds: list[IED], topology: Literal["star","ring"]="star") -> NetworkGraph`
-- `assign_gcb(ied: IED, name: str, dataset: list[str], appid: int, tmin_ms: int=4, tmax_ms: int=1000) -> None`
-- `auto_assign_gcbs(ieds: list[IED], dataset: list[str], appid_base: int=0x1000, name_fmt: str="GC{idx}", tmin_ms: int=4, tmax_ms: int=1000) -> None`
-- `export_scd(filename: str, graph: NetworkGraph, ieds: list[IED]) -> None`  
-  Emits **one `<SubNetwork type="8-1">`** with one `<ConnectedAP>` per IED and a `<GSE>` address per GoCB (multicast MAC, APPID, optional Min/MaxTime).
+- `clone_ied(template: IEDTemplate, count: int) -> list[IED]` 
+Creates multiple IEDs from the same template, each with unique names and addresses.
 
-> **Note:** No VLAN/PRP/HSR in v0.2; all publishers share one broadcast domain.
+- `connect_ieds(ieds: list[IED], topology: Literal["star","ring"]="star") -> NetworkGraph`
+Connects IEDs in a simple network shape (star or ring) and returns the resulting network graph. 
+
+- `assign_gcb(ied: IED, name: str, dataset: list[str], appid: int, tmin_ms: int=4, tmax_ms: int=1000) -> None`
+Attach a GOOSE control block (GoCB) and dataset to `IED`'s LLN0 (making `IED` a publisher).
+
+- `auto_assign_gcbs(ieds: list[IED], dataset: list[str], appid_base: int=0x1000, name_fmt: str="GC{idx}", tmin_ms: int=4, tmax_ms: int=1000) -> None`
+Attach one GOOSE control block (GoCB) to each IED in a list, auto-generating unique names and APPIDs (making all IEDs publishers).
+
+- `export_scd(filename: str, graph: NetworkGraph, ieds: list[IED]) -> None`  
+Save an SCD with one **`<SubNetwork type="8-1">`** with one `<ConnectedAP>` per IED and a `<GSE>` address per GoCB (multicast MAC, APPID, optional Min/MaxTime).
+
+> **Note:** No VLAN/PRP/HSR in v0.1; all publishers share one broadcast domain.
 
 ---
 
@@ -49,7 +57,7 @@ Owns the electrical single‑line model and solves flows used by protection rule
 - `add_load(g: GridModel, bus: BusRef, p_mw: float, q_mvar: float=0.0) -> None`
 - `solve_powerflow(g: GridModel) -> None`
 
-### Faults (steady‑state approx in v0.2)
+### Faults (steady‑state approx in v0.1)
 - `apply_fault(g: GridModel, bus: BusRef, z_pu: complex|None=None, kind: Literal["3ph","1ph","2ph"]="3ph") -> None`
 - `clear_fault(g: GridModel) -> None`
 
@@ -188,8 +196,8 @@ io.write_pcap("bus3_fault.pcap", frames)
 
 ---
 
-## Notes & Limits (v0.2)
+## Notes & Limits (v0.1)
 - **One SubNetwork**; no VLAN/PRP/HSR yet. IED L2 topology is not enforced by SCL export.
-- **Publishers only** (GoCBs). Subscribers/`ExtRef` wiring is out of scope for v0.2.
+- **Publishers only** (GoCBs). Subscribers/`ExtRef` wiring is out of scope for v0.1.
 - **Protection** is simplified (threshold-based). Extend via `protection_rules.custom`.
 - Time is advanced by `step/tick` for deterministic, test‑friendly runs.
