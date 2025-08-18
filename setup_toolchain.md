@@ -28,12 +28,23 @@ sudo ifconfig veth1.2 up
 ```
 
 4. After these commands the virtual interface is up and running, now we need to edit the files to make the toolchain use this interface for its data
-- Update `toolchain/simulationConfiguration.xml` to have only the IEDs that we want the tool to use
-- Update `toolchain/IED1/AttackScenarioConfiguration.xml` to reflect the changed interface names from the original (veth1 instead of ens33)
+  - Update `toolchain/simulationConfiguration.xml` to have only the IEDs that we want the tool to use
+  - Update `toolchain/IED1/AttackScenarioConfiguration.xml` to reflect the changed interface names from the original (veth1 instead of ens33)
 5. The tool is run with `sudo python run.py`
 
 ## Making changes
+### Type of attack
 1. Adjusting the type of attack is in the `AttackScenarioConfiguration.xml` file
-2. The payload that the IED will send out during normal operations is defined in value.cvs (I think this is what they call the Power System Data Log)
-3. 01:0c:cd:01:00:01 is the broadcast address that is being used by the IEDs, which are setup as clients
-4. Each IED has a model description file, which is generated from the .iid file. From my understanding the .iid file describes the capability of the specific IED but does not detail how it communicates.
+
+### Communication 
+1. The payload that the IED will send out during normal operations is defined in value.cvs (I think this is what they call the Power System Data Log and what we may use the pandapower to generate)
+2. 01:0c:cd:01:00:01 is the broadcast address that is being used by the IEDs, which are setup as clients. It seems that there are no subscribers setup, only publishers.
+
+### Topology
+1. Each IED has a model description file, which is generated from the .iid file.
+2. The .iid file can be updated to change the communication of the IED and thereafter new model files must be generated to be used by the IEC61850 toolchain.
+  - Open IEC61850ToolChain/model_generator_java/ in an IDE, e.g. Visual Studio Code
+  - Download a Java openJDK, e.g. the Adopt OpenJDK from the UU software center
+  - The tool is written for openjdk 1.6 and not 1.8, so you may have to rewrite a switch statement into if/if else to compile it with 1.8
+  - Run the tool with the .iid file as parameter (It seems that even though the tool is intended for a .icd file, .iid works well)
+3. Need to run `make`to setup the IEC61850 toolchain with the new model files.
