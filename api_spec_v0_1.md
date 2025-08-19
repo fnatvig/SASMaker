@@ -6,7 +6,7 @@ SASMaker generates **IEC 61850 GOOSE traffic** for **electrically realistic** sc
 
 ## 0) Design Principles & Degrees of Freedom
 - **User chooses number of buses** (electrical nodes). 
-- **User chooses number of IEDs** (publishers). 
+- **User chooses number of IEDs** (communication nodes). 
 - **User defines bus connectivity** (lines in the power model). 
 - **User binds IED roles to elements** (which IED protects which line/bus). 
 - **Layer-2 topology is fixed to a star** (all IEDs connect to a single virtual switch / single `<SubNetwork>`). 
