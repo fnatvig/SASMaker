@@ -39,12 +39,16 @@ sudo ifconfig veth1.2 up
 ### Communication 
 1. The payload that the IED will send out during normal operations is defined in value.cvs (I think this is what they call the Power System Data Log and what we may use the pandapower to generate)
 2. 01:0c:cd:01:00:01 is the broadcast address that is being used by the IEDs, which are setup as clients. It seems that there are no subscribers setup, only publishers.
-
-### Topology
-1. Each IED has a model description file, which is generated from the .iid file.
-2. The .iid file can be updated to change the communication of the IED and thereafter new model files must be generated to be used by the IEC61850 toolchain.
+3. Each IED has a model description file, which is generated from the .iid file.
+4. The .iid file can be updated to change the communication of the IED and thereafter new model files must be generated to be used by the IEC61850 toolchain.
   - Open IEC61850ToolChain/model_generator_java/ in an IDE, e.g. Visual Studio Code
   - Download a Java openJDK, e.g. the Adopt OpenJDK from the UU software center
   - The tool is written for openjdk 1.6 and not 1.8, so you may have to rewrite a switch statement into if/if else to compile it with 1.8
   - Run the tool with the .iid file as parameter (It seems that even though the tool is intended for a .icd file, .iid works well)
-3. Need to run `make`to setup the IEC61850 toolchain with the new model files.
+5. Need to run `make`to setup the IEC61850 toolchain with the new model files.
+ - There is a bug with the `getruningtime()` function in the goose_publisher_toolchain.c file. It with this change, but the getTime function is also broken (todo)
+```
+clock_t currentTime = clock();
+double spent =(double)(currentTime - beginTime)/ 100000;
+return spent;
+```
