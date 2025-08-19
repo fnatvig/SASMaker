@@ -5,40 +5,45 @@ SASMaker generates **IEC 61850 GOOSE traffic** for **electrically realistic** sc
 ---
 
 ## 0) Design Principles & Degrees of Freedom
-- **User chooses number of buses** (electrical nodes). ✅
-- **User chooses number of IEDs** (publishers). ✅
-- **User defines bus connectivity** (lines in the power model). ✅
-- **User binds IED roles to elements** (which IED protects which line/bus). ✅
-- **L2 topology simplified** to **one SubNetwork** in v0.1 (star/ring only for visualization). ⚠️
-- Skip subscribers/`ExtRef` wiring in v0.1; **publishers only** via GoCBs. ⚠️
+- **User chooses number of buses** (electrical nodes). 
+- **User chooses number of IEDs** (publishers). 
+- **User defines bus connectivity** (lines in the power model). 
+- **User binds IED roles to elements** (which IED protects which line/bus). 
+- **Layer-2 topology is fixed to a star** (all IEDs connect to a single virtual switch / single `<SubNetwork>`). 
+- Skip subscribers/`ExtRef` wiring in v0.1; **publishers only** via GoCBs. 
 
 ---
 
-## 1) `scl_builder` — Basic SCL & Network Graph
-Load a template IED, clone N IEDs, optionally visualize star/ring, attach GoCBs, and export one SubNetwork SCD.
+## 1) `scl_builder` — IID-centric SCL & Network Metadata
+Loads an IID template, clones N IEDs, updates `<Communication>` (ConnectedAP/GSE) for each IED, and writes back new IID files.
 
 ### Core classes
-- **`IEDTemplate`** — loads a generic IID file for cloning.
-- **`IED`** — concrete instance created from the template.
-- **`NetworkGraph`** — simple list of nodes/edges (for star/ring visualization only).
+- **`IEDTemplate`** — loads a generic IID template (with `<Communication>` + GoCB structure.
+- **`IED`** — concrete instance created from the template (unique name, MACm APPID, GoCBs).
+- **`NetworkGraph`** — node/edge structure used only for visualization (star layout).
 
 ### API
 - `clone_ied(template: IEDTemplate, count: int) -> list[IED]` 
-Creates multiple IEDs from the same template, each with unique names and addresses.
+Creates multiple IED instances with unique names and reserved addressing.
 
-- `connect_ieds(ieds: list[IED], topology: Literal["star","ring"]="star") -> NetworkGraph`
-Connects IEDs in a simple network shape (star or ring) and returns the resulting network graph. 
+- `visualize_topology(ieds: list[IED]) -> NetworkGraph`
+Returns a star layout graph for diagrams. Visualization-only; does not modify IID `<Communication>`.
 
 - `assign_gcb(ied: IED, name: str, dataset: list[str], appid: int, tmin_ms: int=4, tmax_ms: int=1000) -> None`
-Attach a GOOSE control block (GoCB) and dataset to `IED`'s LLN0 (making `IED` a publisher).
+Ensures the IED has a GOOSE control block (GoCB) + `<GSE>` entry.
 
 - `auto_assign_gcbs(ieds: list[IED], dataset: list[str], appid_base: int=0x1000, name_fmt: str="GC{idx}", tmin_ms: int=4, tmax_ms: int=1000) -> None`
-Attach one GOOSE control block (GoCB) to each IED in a list, auto-generating unique names and APPIDs (making all IEDs publishers).
+Attach one GoCB to each IED in a list, auto-generating unique names and APPIDs (making all IEDs publishers).
 
-- `export_scd(filename: str, graph: NetworkGraph, ieds: list[IED]) -> None`  
-Save an SCD with one **`<SubNetwork type="8-1">`** with one `<ConnectedAP>` per IED and a `<GSE>` address per GoCB (multicast MAC, APPID, optional Min/MaxTime).
+- `ensure_unique_comm(ieds: list[IED], mac_base: str="01-0C-CD-01-00-00", appid_base: int=0x1000) -> None`  
+Iterates through all IEDs and makes multicast MAC + APPID unique and consistent in `<GSE>`.
 
-> **Note:** No VLAN/PRP/HSR in v0.1; all publishers share one broadcast domain.
+- `export_iids(dirpath: str, ieds: list[IED]) -> list[str]`
+Writes one IID per IED with updated `<Communication>`.
+
+
+
+> **Note:** No VLAN/PRP/HSR in v0.1; all publishers share a single broadcast domain assumption.
 
 ---
 
@@ -106,17 +111,17 @@ Applies events to the power model, runs protection, and triggers publishers.
 
 ---
 
-## 6) `goose_generator` — Protocol Engine
-Encodes dataset values into GOOSE frames and manages `stNum/sqNum` & retransmissions.
+## 6) `goose_generator` — Protocol Engine (IID-first)
+Encodes dataset values into GOOSE frames and manages `stNum/sqNum` & retransmissions. libiec61850 could most likely be used here.
 
 ### API
-- `GoosePublisher.from_scd(scd_path: str, ied: str, cb: str) -> GoosePublisher`
+- `GoosePublisher.from_iid((iid_path: str, ied: str, goCB: str) -> GoosePublisher`
 - `GoosePublisher.publish_event(values: dict) -> None`   # stNum++, sqNum=0
 - `GoosePublisher.heartbeat() -> None`                    # sqNum++
 - `GoosePublisher.step(dt_ms: int) -> list[bytes]`        # run timers, return frames
 - `emit_pcap(path: str, frames: list[bytes]) -> None`
 
-**Behavior:** Uses `<GSE>` Address (multicast MAC, APPID, optional Min/MaxTime). Supports BOOLEAN, INT{8,16,32}, FLOAT32, Timestamp, Quality.
+**Behavior:** Reads `<GSE>` Address (multicast MAC, APPID, Min/MaxTime) from IID.
 
 ---
 
@@ -148,6 +153,7 @@ frames = engine.collect_frames()
 - Address utilities (MAC, APPID)
 - Deterministic seeding
 - Per‑unit/base conversions
+- IID merge/patch helpers for `<Communication>`
 
 ---
 
@@ -158,30 +164,34 @@ from sasmaker import scl_builder, power_model, mapping, protection_rules
 from sasmaker import event_engine, goose_generator, traffic_scenarios, io
 
 # 1) IEDs & SCL
-tpl = scl_builder.IEDTemplate("generic.iid")
-ieds = scl_builder.clone_ied(tpl, 10)               # user chooses number of IEDs
-graph = scl_builder.star(ieds)                       # visualization only
+tpl = scl_builder.IEDTemplate("generic.iid")           # template with <Communication> + GoCB
+ieds = scl_builder.clone_ied(tpl, 10)                  # user chooses number of IEDs
+_ = scl_builder.visualize_topology(ieds)         # visualization only
 scl_builder.auto_assign_gcbs(ieds, dataset=["LD0/LLN0.Mod.stVal"], appid_base=0x1200)
-scl_builder.export_scd("substation.scd", graph, ieds)
+scl_builder.ensure_unique_comm(ieds, mac_base="01-0C-CD-01-00-00", appid_base=0x1200)
+iid_paths = scl_builder.export_iids("./out/iids", ieds)  # one IID per IED (updated Communication)
 
-# 2) Power model (user chooses number of buses & connectivity)
+# 2) Power model (user chooses buses & connectivity)
 g = power_model.new_grid()
 b1 = power_model.add_bus(g, "B1", 110); b2 = power_model.add_bus(g, "B2", 110); b3 = power_model.add_bus(g, "B3", 110)
 l12 = power_model.add_line(g, b1, b2, 10.0, "149-AL1/24-ST1A 110.0")
 l23 = power_model.add_line(g, b2, b3, 8.0,  "149-AL1/24-ST1A 110.0")
 power_model.add_load(g, b2, 40.0); power_model.solve_powerflow(g)
 
-# 3) Bind IED roles to grid elements (user-controlled mapping)
+# 3) Bind IED roles
 binds = [
   mapping.bind(ieds[0], "GC1", "feeder_protection", l12),
   mapping.bind(ieds[1], "GC2", "feeder_protection", l23),
   mapping.bind(ieds[2], "GC3", "busbar_protection",  b3),
 ]
 
-# 4) Publishers from SCD
+# 4) Publishers from IID
 pubs = {}
 for (ied, gcb) in [(ieds[0], "GC1"), (ieds[1], "GC2"), (ieds[2], "GC3")]:
-    pubs[mapping.bind(ied, gcb, "measurement", b3)] = goose_generator.GoosePublisher.from_scd("substation.scd", ied=ied.name, cb=gcb)
+    iid_path = next(p for p in iid_paths if p.endswith(f"{ied.name}.iid"))
+    pubs[mapping.bind(ied, gcb, "measurement", b3)] = goose_generator.GoosePublisher.from_iid(
+        iid_path, ied=ied.name, cb=gcb
+    )
 
 # 5) Event engine + scenario
 engine = event_engine.EventEngine(g, pubs)
