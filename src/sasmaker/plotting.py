@@ -1,0 +1,229 @@
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from math import isclose
+
+def _edge_point_towards(x, y, L, T, x_to, y_to):
+    dx, dy = (x_to - x), (y_to - y)
+    if dx == 0 and dy == 0: return (x, y)
+    if abs(dx) * T >= abs(dy) * L:  # left/right
+        ex = x + (L/2 if dx > 0 else -L/2)
+        t = 0 if dx == 0 else (ex - x) / dx
+        ey = y + t * dy
+    else:                            # top/bottom
+        ey = y + (T/2 if dy > 0 else -T/2)
+        t = 0 if dy == 0 else (ey - y) / dy
+        ex = x + t * dx
+    return (ex, ey)
+
+def _edge_point_vertical(x_bar, y_bar, L, T, *, top: bool, x_target: float):
+    half = L / 2.0
+    x_hit = min(max(x_target, x_bar - half), x_bar + half)
+    y_edge = y_bar + (T/2 if top else -T/2)
+    return (x_hit, y_edge)
+
+def _draw_busbar(ax, x, y, L, T=0.01, color="black"):
+    rect = Rectangle((x - L/2, y - T/2), L, T, facecolor=color, edgecolor=color, zorder=3)
+    ax.add_patch(rect)
+
+def plot_one_line(substation, *,
+                  busbar_length=0.2,            # ← “single” length (base unit)
+                  busbar_thickness=0.01,
+                  line_width=1.5, line_color="black",
+                  buslink_width=1.0, buslink_color="#555555", buslink_style="--",
+                  label_buses=True, label_lines=False, label_buslinks=False,
+                  show=True):
+    """One-line view with connection points (CPs) every 'busbar_length'.
+       If a busbar has draw_slots = N, its visual length is N * busbar_length and it exposes N CPs:
+         single:  [½L]-[CP]-[½L]
+         double:  [½L]-[CP]-[L]-[CP]-[½L]
+         triple:  [½L]-[CP]-[L]-[CP]-[L]-[CP]-[½L]
+       Lines & loads start from the nearest CP on the correct edge.
+    """
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    # --- gather coords & per-bus visual sizes and CPs ---
+    bus_xy, bus_L, bus_T, bus_CPX = {}, {}, {}, {}
+    for bb in substation.busbars.values():
+        x, y = bb.xy
+        slots = getattr(bb, "draw_slots", None)
+        L = (slots * busbar_length) if (slots and slots > 0) else (getattr(bb, "draw_length", None) or busbar_length)
+        T = getattr(bb, "draw_thickness", None) or busbar_thickness
+
+        _draw_busbar(ax, x, y, L, T)
+        bus_xy[bb.idx] = (x, y)
+        bus_L[bb.idx]  = L
+        bus_T[bb.idx]  = T
+
+        # compute CPs along the bar
+        if slots and slots > 0:
+            left = x - L/2.0
+            cpx = [left + (busbar_length*0.5) + k*busbar_length for k in range(slots)]
+        else:
+            # treat as “single” visually (1 CP at center)
+            cpx = [x]
+        bus_CPX[bb.idx] = cpx
+
+        if label_buses:
+            ax.text(x, y + T*1.2, f"{bb.name}-{bb.vn_kv}kV",
+                    ha="center", va="bottom", fontsize=9, zorder=100)
+
+    def _nearest_cp_x(bus_idx: int, x_target: float) -> float:
+        cpx = bus_CPX[bus_idx]
+        return min(cpx, key=lambda xx: abs(xx - x_target))
+
+    # epsilon to detect “x-aligned” (choose vertical routing)
+    EPS = 1e-9
+
+    # --- draw feeder/transmission lines (snap to CPs) ---
+    for name, ln in substation.lines.items():
+        fb, tb = ln.buses
+        x1, y1 = bus_xy[fb]; L1, T1 = bus_L[fb], bus_T[fb]
+        x2, y2 = bus_xy[tb]; L2, T2 = bus_L[tb], bus_T[tb]
+
+        # If x aligned, draw vertical parent→child using CP nearest to child x
+        if abs(x1 - x2) <= EPS and y1 != y2:
+            # parent = higher y
+            if y1 > y2:
+                sx, sy = _edge_point_vertical(x1, y1, L1, T1, top=False, x_target=_nearest_cp_x(fb, x2))
+                ex, ey = _edge_point_vertical(x2, y2, L2, T2, top=True,  x_target=x2)
+            else:
+                sx, sy = _edge_point_vertical(x2, y2, L2, T2, top=False, x_target=_nearest_cp_x(tb, x1))
+                ex, ey = _edge_point_vertical(x1, y1, L1, T1, top=True,  x_target=x1)
+            ax.plot([sx, ex], [sy, ey], linewidth=line_width, color=line_color, zorder=2)
+        else:
+            # generic: start at CP on the correct edge (top/bottom), then straight segment
+            # pick edge by relative y (if almost equal, fall back to “towards”)
+            if not isclose(y1, y2, abs_tol=1e-12):
+                top1 = y2 > y1
+                top2 = y1 > y2
+                s1 = _edge_point_vertical(x1, y1, L1, T1, top=top1, x_target=_nearest_cp_x(fb, x2))
+                s2 = _edge_point_vertical(x2, y2, L2, T2, top=top2, x_target=_nearest_cp_x(tb, x1))
+                ax.plot([s1[0], s2[0]], [s1[1], s2[1]], linewidth=line_width, color=line_color, zorder=2)
+            else:
+                # same height → keep your previous edge projection
+                p1 = _edge_point_towards(x1, y1, L1, T1, x2, y2)
+                p2 = _edge_point_towards(x2, y2, L2, T2, x1, y1)
+                ax.plot([p1[0], p2[0]], [p1[1], p2[1]], linewidth=line_width, color=line_color, zorder=2)
+
+        if label_lines:
+            # midpoint label
+            xm = (x1 + x2) / 2.0; ym = (y1 + y2) / 2.0
+            ax.text(xm, ym, name, fontsize=8, ha="center", va="center", zorder=4)
+
+    # --- draw intra-substation bus links (dashed) — leave as before (edge-to-edge) ---
+    for name, bl in substation.buslinks.items():
+        a, b = bl.buses
+        x1, y1 = bus_xy[a]; L1, T1 = bus_L[a], bus_T[a]
+        x2, y2 = bus_xy[b]; L2, T2 = bus_L[b], bus_T[b]
+        p1 = _edge_point_towards(x1, y1, L1, T1, x2, y2)
+        p2 = _edge_point_towards(x2, y2, L2, T2, x1, y1)
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]],
+                linewidth=buslink_width, color=buslink_color, linestyle=buslink_style,
+                zorder=2, alpha=1.0 if bl.closed else 0.3)
+        if label_buslinks:
+            xm, ym = (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2
+            ax.text(xm, ym, f"{name} ({'closed' if bl.closed else 'open'})",
+                    fontsize=8, ha="center", va="center", zorder=4)
+
+    # --- draw loads: stub from the nearest CP on the bottom edge ---
+    for name, ld in substation.loads.items():
+        b = ld.bus_idx
+        x, y = float(substation.net.bus.at[b, "x"]), float(substation.net.bus.at[b, "y"])
+        Lb, Tb = bus_L[b], bus_T[b]
+        cp_x = _nearest_cp_x(b, x)           # snap to nearest CP
+        sx, sy = _edge_point_vertical(x, y, Lb, Tb, top=False, x_target=cp_x)
+        stub_len = 0.05
+        ex, ey = cp_x, sy - stub_len
+        ax.plot([sx, ex], [sy, ey], color="black", linewidth=1.5, zorder=2)
+        ax.scatter([ex], [ey], marker="v", color="black", s=40, zorder=3)
+        ax.text(ex, ey - 0.05, name, ha="center", va="top", fontsize=8, zorder=4)
+
+    # --- draw CBs: snap to nearest CP (x fixed), offset only normal to the busbar ---
+    for name, cb in substation.cbs.items():
+        b_here = cb.endpoint_bus()
+        xh, yh = bus_xy[b_here]
+        Lh, Th = bus_L[b_here], bus_T[b_here]
+
+        # decide top/bottom edge from the other bus (fallback to direction)
+        try:
+            b_oth = cb.other_bus()
+            xo, yo = bus_xy[b_oth]
+            top_edge = (yo > yh)
+            target_x = xo
+        except Exception:
+            _, _, _, uy = cb.endpoint_xy_and_dir()
+            top_edge = (uy > 0.0)
+            target_x = xh
+
+        # anchor at nearest CP on this bus
+        cp_x = _nearest_cp_x(b_here, target_x)
+        sx, sy = _edge_point_vertical(xh, yh, Lh, Th, top=top_edge, x_target=cp_x)
+
+        # place CB closer to bar than the CT
+        sign = 1.0 if top_edge else -1.0
+        gap = max(Th * 1.5, 0.08)     # distance from bus edge to CB
+        px, py = cp_x, sy + sign * gap
+
+        # short stem from bar to CB
+        ax.plot([sx, px], [sy, py], linewidth=1.0, color=line_color, zorder=5)
+
+        # CB symbol: small square; if open, draw a diagonal gap
+        size = 0.01  # half-size in plot units
+        rect_x = [px - size, px + size, px + size, px - size, px - size]
+        rect_y = [py - size, py - size, py + size, py + size, py - size]
+        
+        if cb.closed:
+            ax.fill(rect_x, rect_y, linewidth=1.6, color="#FF0000", zorder=6)
+        else:
+            g = size * 0.85
+            ax.plot([px - g, px + g], [py + sign * g * 0.5, py - sign * g * 0.5],
+                    linewidth=1.6, zorder=7)
+
+        # label above/below the square
+        ax.text(px, py + sign * (size + 0.02), name, fontsize=8,
+                ha="center", va=("bottom" if sign > 0 else "top"), zorder=7)
+
+    # # --- draw CTs: snap to nearest CP (x fixed), offset only normal to the busbar ---
+    for name, ct in substation.cts.items():
+        b_here = ct.endpoint_bus()
+        xh, yh = bus_xy[b_here]
+        Lh, Th = bus_L[b_here], bus_T[b_here]
+
+        # figure which edge to exit (other bus above → top, else bottom)
+        try:
+            b_oth = ct.other_bus()
+            xo, yo = bus_xy[b_oth]
+            top_edge = (yo > yh)
+            target_x = xo
+        except Exception:
+            # fallback if line missing: use direction sign
+            _, _, _, uy = ct.endpoint_xy_and_dir()
+            top_edge = (uy > 0.0)
+            target_x = xh
+
+        # anchor at the nearest CP on this bus
+        cp_x = _nearest_cp_x(b_here, target_x)
+        sx, sy = _edge_point_vertical(xh, yh, Lh, Th, top=top_edge, x_target=cp_x)
+
+        # move the CT straight out, perpendicular to the bar (no horizontal drift)
+        sign = 1.0 if top_edge else -1.0
+        gap = max(Th * 3, 0.16)  # keep the circle clear of the bar; tweak if needed
+        px, py = cp_x, sy + sign * gap
+
+        # optional tiny stem from edge to the CT
+        ax.plot([cp_x, px], [sy, py], linewidth=1.0, color=line_color, zorder=5)
+
+        # outlined circle
+        ax.scatter([px], [py], marker="o", s=80, facecolors="none",
+                   edgecolors="black", linewidths=1.5, zorder=6)
+
+        # label, just beyond the circle
+        ax.text(px, py + sign * 0.03, name, fontsize=8,
+                ha="center", va=("bottom" if sign > 0 else "top"), zorder=7)
+
+    ax.set_aspect("equal", adjustable="datalim")
+    ax.axis("off")
+    ax.set_title(f"{substation.name} — one-line view")
+    if show:
+        plt.tight_layout(); plt.show()
+    return ax
