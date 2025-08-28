@@ -26,14 +26,14 @@ l2 = s.add_line("L2", b1, b2, length_km=5.0)
 l3 = s.add_line("L3", b1, b3, length_km=5.0)
 
 # Circuit breakers
-s.add_cb("CB1", l1, side="to", closed=True)
-s.add_cb("CB2", l2, side="from", closed=True)
-s.add_cb("CB3", l3, side="from", closed=True)
+cb1 = s.add_cb("CB1", l1, side="to", closed=True)
+cb2=s.add_cb("CB2", l2, side="from", closed=True)
+cb3=s.add_cb("CB3", l3, side="from", closed=True)
 
 # Current transformers (measures the current in lines)
-s.add_ct("CT1", l1, side="to")
-s.add_ct("CT2", l2, side="from")
-s.add_ct("CT3", l3, side="from")
+ct1 = s.add_ct("CT1", l1, side="to")
+ct2=s.add_ct("CT2", l2, side="from")
+ct3=s.add_ct("CT3", l3, side="from")
 
 # Add a 15 MW / 3 Mvar load at MV bus, equal per phase
 s.add_load("LoadA", b2, p_mw=20.0, q_mvar=5.0)
@@ -42,10 +42,17 @@ s.add_load("LoadB", b3, p_mw=15.0, q_mvar=3.5)
 # Intra-substation tie (bus coupler/sectionalizer)
 # s.add_buslink("BC1", b2, b3, closed=True)
 
+ied1 = s.add_ied("ied1", ct=ct1, cb=cb1)
+ied2 = s.add_ied("ied2", ct=ct2, cb=cb2)
+ied3 = s.add_ied("ied3", ct=ct3, cb=cb3)
+ied1.ptoc.pickup_ka = 0.01  # tune pickup
+
 stats = s.run_powerflow()
 
-print(stats)
-print(s.res_line)
+plot_one_line(s, line_color="#009B24", buslink_color="#555555", buslink_style="-",
+              label_buses=True, label_lines=False, label_buslinks=False)
+
+ied1.tick()
 
 plot_one_line(s, line_color="#009B24", buslink_color="#555555", buslink_style="-",
               label_buses=True, label_lines=False, label_buslinks=False)

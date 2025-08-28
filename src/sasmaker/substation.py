@@ -1,10 +1,12 @@
 import pandapower as pp
+
 from .busbar import Busbar
 from .line import Line
 from .buslink import BusLink
 from .load import Load
 from .ct import CT
 from .cb import CB
+from .ied import IED
 
 class Substation:
     """Owns the pandapower net + created objects."""
@@ -18,6 +20,7 @@ class Substation:
         self.loads: dict[str, Load] = {}
         self.cts: dict[str, CT] = {}
         self.cbs: dict[str, CB] = {}
+        self.ieds: dict[str, IED] = {}
         self.three_phase = True
 
     # ----- creation helpers -----
@@ -100,6 +103,11 @@ class Substation:
         cb.attach_line(self.net, line_id=line.idx, side=side, closed=closed)
         self.cbs[name] = cb
         return cb
+    
+    def add_ied(self, name: str, *, ct=None, cb=None) -> IED:
+        ied = IED(name, ct=ct, cb=cb)
+        self.ieds[name] = ied
+        return ied
     
         # ----- power flow + helpers (3φ by default) -----
     def run_powerflow(self, **pp_kwargs):
