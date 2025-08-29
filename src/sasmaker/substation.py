@@ -7,6 +7,30 @@ from .load import Load
 from .ct import CT
 from .cb import CB
 from .ied import IED
+from .util import sanitize_net_3ph
+
+def _dump_nan_refs(net):
+    import pandas as pd
+    tables = ("ext_grid_3ph","ext_grid","line_3ph","line","load_3ph","load",
+            "switch","trafo_3ph","trafo","impedance","shunt_3ph","shunt")
+    ref_cols = {"bus","from_bus","to_bus","hv_bus","lv_bus","element"}
+
+    for t in tables:
+        df = getattr(net, t, None)
+        if df is None or df.empty:
+            continue
+        cols = [c for c in df.columns if c in ref_cols]
+        if not cols:
+            continue
+        bad = pd.DataFrame({c: df[c].isna() for c in cols})
+        mask = bad.any(axis=1)
+        if mask.any():
+            print(f"\n[NaN refs] table={t} rows={list(df.index[mask])}")
+            print(df.loc[mask, cols].to_string())
+            # helpful context if available
+            name_cols = [c for c in ("name","element_type") if c in df.columns]
+            if name_cols:
+                print(df.loc[mask, name_cols].to_string())
 
 class Substation:
     """Owns the pandapower net + created objects."""
@@ -79,12 +103,8 @@ class Substation:
         self.ext_grids[name] = eg_idx
         return eg_idx
     
-    def add_load(self, name: str, at_busbar: Busbar,
-                 p_mw: float, q_mvar: float = 0.0,
-                 phase_split: tuple[float, float, float] = (1/3, 1/3, 1/3),
-                 in_service: bool = True) -> Load:
-        """Create a minimal 3φ load at a busbar (equal split by default)."""
-        ld = Load(name, self.net, at_busbar.idx, p_mw, q_mvar, phase_split, in_service)
+    def add_load(self, name: str, busbar, p_mw: float, q_mvar: float):
+        ld = Load(name, self.net, busbar.idx, p_mw, q_mvar)
         self.loads[name] = ld
         return ld
     
@@ -109,12 +129,20 @@ class Substation:
         self.ieds[name] = ied
         return ied
     
+    def run_simulation(self, sim: "Simulation"):
+        from .simulation import Simulation  # local import to avoid cycles
+        assert isinstance(sim, Simulation)
+        return sim.run(self)
+
+
         # ----- power flow + helpers (3φ by default) -----
     def run_powerflow(self, **pp_kwargs):
         """
         Runs power flow. Defaults to three-phase.
         Returns a tiny summary dict with 3φ min/max voltages if available.
         """
+        _dump_nan_refs(self.net)
+        sanitize_net_3ph(self.net)
         if self.three_phase:
             pp.runpp_3ph(self.net, **pp_kwargs)
             bus_tbl = getattr(self.net, "res_bus_3ph", None)

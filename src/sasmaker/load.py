@@ -1,56 +1,56 @@
 import pandapower as pp
+import math
 
 class Load:
-    """
-    Minimal three-phase load.
-    - Always uses pandapower.create_asymmetric_load
-    - Provide total P/Q; splits equally across phases by default
-    """
-    def __init__(self, name: str, net, bus_idx: int,
-                 p_mw: float, q_mvar: float = 0.0,
-                 phase_split: tuple[float, float, float] = (1/3, 1/3, 1/3),
-                 in_service: bool = True):
+    """3φ load using pandapower's asymmetric_load (per-phase P/Q)."""
+    def __init__(self, name: str, net, bus_idx: int, p_mw: float, q_mvar: float):
         self.name = name
         self._net = net
-        self._bus_idx = int(bus_idx)
+        self._bus_idx = int(bus_idx)   # <-- backing field
+        self.base_p = float(p_mw)
+        self.base_q = float(q_mvar)
 
-        sa, sb, sc = phase_split
-        if abs(sa + sb + sc - 1.0) > 1e-9:
-            raise ValueError("phase_split must sum to 1.0")
 
-        pa, pb, pc = p_mw * sa, p_mw * sb, p_mw * sc
-        qa, qb, qc = q_mvar * sa, q_mvar * sb, q_mvar * sc
+        # equal per-phase split by default
+        pa = p_mw / 3.0
+        qa = q_mvar / 3.0
 
-        self._idx = pp.create_asymmetric_load(
-            net, bus=bus_idx,
-            p_a_mw=pa, p_b_mw=pb, p_c_mw=pc,
-            q_a_mvar=qa, q_b_mvar=qb, q_c_mvar=qc,
-            in_service=in_service, name=name
+        self.idx = pp.create_asymmetric_load(
+            net,
+            bus=self._bus_idx,        # use backing field here
+            p_a_mw=pa, q_a_mvar=qa,
+            p_b_mw=pa, q_b_mvar=qa,
+            p_c_mw=pa, q_c_mvar=qa,
+            name=name,
+            in_service=True
         )
 
     @property
-    def idx(self) -> int:       # element index in net.asymmetric_load
-        return int(self._idx)
+    def bus_idx(self) -> int:
+        return self._bus_idx          # <-- return backing field (no recursion)
 
-    @property
-    def bus_idx(self) -> int:   # the bus this load is attached to
-        return int(self._bus_idx)
+    def set_power(self, p_mw: float, q_mvar: float):
+        """Overwrite per-phase powers with an equal split."""
+        pa = p_mw / 3.0
+        qa = q_mvar / 3.0
+        t = self._net.asymmetric_load
+        i = self.idx
+        t.at[i, "p_a_mw"] = pa; t.at[i, "q_a_mvar"] = qa
+        t.at[i, "p_b_mw"] = pa; t.at[i, "q_b_mvar"] = qa
+        t.at[i, "p_c_mw"] = pa; t.at[i, "q_c_mvar"] = qa
 
-    def set_power(self, p_mw: float, q_mvar: float = 0.0,
-                  phase_split: tuple[float, float, float] = (1/3, 1/3, 1/3)):
-        """Update total P/Q with optional new split."""
-        sa, sb, sc = phase_split
-        if abs(sa + sb + sc - 1.0) > 1e-9:
-            raise ValueError("phase_split must sum to 1.0")
-        pa, pb, pc = p_mw * sa, p_mw * sb, p_mw * sc
-        qa, qb, qc = q_mvar * sa, q_mvar * sb, q_mvar * sc
-        net = self._net
-        net.asymmetric_load.at[self._idx, "p_a_mw"] = pa
-        net.asymmetric_load.at[self._idx, "p_b_mw"] = pb
-        net.asymmetric_load.at[self._idx, "p_c_mw"] = pc
-        net.asymmetric_load.at[self._idx, "q_a_mvar"] = qa
-        net.asymmetric_load.at[self._idx, "q_b_mvar"] = qb
-        net.asymmetric_load.at[self._idx, "q_c_mvar"] = qc
 
-    def __repr__(self):
-        return f"<Load {self.name} idx={self.idx}>"
+    def profile(self, base_p: float, base_q: float, t: float, period: float = 24.0):
+        """
+        Daily sinusoidal profile. 
+        t in hours, period defaults to 24h.
+        """
+        factor = 0.8 + 0.4*math.sin(2*math.pi * (t % period) / period)  # between 0.4 and 1.2
+        self.set_power(base_p * factor, base_q * factor)
+
+    def set_base(self, p_mw: float, q_mvar: float):
+        self.base_p = float(p_mw); self.base_q = float(q_mvar)
+
+    def apply(self):
+        p = self.base_p * self.profile_mult * self.event_mult * self.noise_mult
+        q = self.base_q * self.profile_mult * self.event_mult * self.noise_mult
