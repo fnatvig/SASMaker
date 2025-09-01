@@ -35,6 +35,7 @@ sudo ifconfig veth1.2 up
 ## Making changes
 ### Type of attack
 1. Adjusting the type of attack is in the `AttackScenarioConfiguration.xml` file
+2. The modify attacks as it is written now can only modify the "alldata" values
 
 ### Communication 
 1. The payload that the IED will send out during normal operations is defined in value.cvs (I think this is what they call the Power System Data Log and what we may use the pandapower to generate)
@@ -46,9 +47,3 @@ sudo ifconfig veth1.2 up
   - The tool is written for openjdk 1.6 and not 1.8, so you may have to rewrite a switch statement into if/if else to compile it with 1.8
   - Run the tool with the .iid file as parameter (It seems that even though the tool is intended for a .icd file, .iid works well)
 5. Need to run `make`to setup the IEC61850 toolchain with the new model files.
- - There is a bug with the `getruningtime()` function in the goose_publisher_toolchain.c file. It with this change, but the getTime function is also broken (todo)
-```
-clock_t currentTime = clock();
-double spent =(double)(currentTime - beginTime)/ 100000;
-return spent;
-```
