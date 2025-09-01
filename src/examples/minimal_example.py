@@ -1,7 +1,7 @@
 from sasmaker import Substation
 from sasmaker.builder import snap_child_to_slot
 from sasmaker.plotting import plot_one_line
-from sasmaker.simulation import Simulation, sample_cts, sample_lines, sample_buses, evt_set_load
+from sasmaker.simulation import Simulation, sample_cts, sample_cbs, sample_buses, inject_overcurrent_on_line_to_bus
 
 s = Substation("1-bar substation")
 
@@ -40,25 +40,30 @@ s.add_load("LoadB", b3, p_mw=15.0, q_mvar=3.5)
 
 # Adding IEDs and connecting them to one CT and one CB each
 ied1 = s.add_ied("ied1", ct=ct1, cb=cb1)
+ied1.ptoc.pickup_ka = 0.45
 ied2 = s.add_ied("ied2", ct=ct2, cb=cb2)
+ied2.ptoc.pickup_ka = 0.2
 ied3 = s.add_ied("ied3", ct=ct3, cb=cb3)
+ied3.ptoc.pickup_ka = 0.2
 
 # Simulation conf
 sim = Simulation("step load", t_end=2.0, dt=0.1, vary_loads=True)
 
+
 # Event scheduler
-sim.at(1.0, evt_set_load(load_name="LoadB", p_mw=40.0, q_mvar=7.0), "increase load")
+# inject_overcurrent_on_line_to_bus(sim, t0=0.6, duration=0.4, line_name="L2", factor=2.0)
+inject_overcurrent_on_line_to_bus(sim, t0=0.6, duration=0.4, line_name="L3", factor=2)
 
 # Determining what data to inspect/export
 sim.add_sampler(sample_cts())
-sim.add_sampler(sample_lines(["L1"]))
+sim.add_sampler(sample_cbs())
 sim.add_sampler(sample_buses(["bus1", "remoteA", "remoteB"]))
 
 # Runs the simulation
 df = sim.run(s)
 
 # prints simulation data
-print(df.head())
+print("\n First five rows of output: \n", df.head())
 
 # simulation data export
 df.to_excel("output/test_output.xlsx")

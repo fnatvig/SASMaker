@@ -34,3 +34,12 @@ def sanitize_net_3ph(net):
         df = getattr(net, name, None)
         if df is not None:
             _fix_ref_cols(df, name)
+
+def replace_nan_with_zero(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Return a copy of df where all NaN/inf values are replaced with 0.0.
+    """
+    clean = df.copy()
+    clean = clean.replace([pd.NA, float("nan"), float("inf"), -float("inf")], 0.0)
+    clean = clean.fillna(0.0)
+    return clean
