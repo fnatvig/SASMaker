@@ -16,7 +16,7 @@ class Busbar:
         # plotting hints (do not affect pandapower)
         self._draw_length = draw_length
         self._draw_thickness = draw_thickness
-        self._draw_slots = int(draw_slots) if draw_slots is not None else None
+        self._draw_slots = int(draw_slots) if draw_slots is not None else 1
 
     @property
     def idx(self) -> int: return int(self._bus_idx)

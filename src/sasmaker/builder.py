@@ -18,11 +18,12 @@ def cp_xs(parent: Busbar, *, busbar_length: float) -> list[float]:
         return [x]
 
 def snap_child_to_slot(sub: Substation, parent: Busbar, child: Busbar, *,
-                       slot_idx: int, busbar_length: float, drop: float = 0.5) -> None:
+                       slot_idx: int, drop: float = 0.5) -> None:
     """
     Move 'child' busbar to be straight under the parent's chosen CP.
     Sets child's x to CP_x and y to parent.y - drop.
     """
+    busbar_length = 0.1+child.draw_slots*0.1
     cps = cp_xs(parent, busbar_length=busbar_length)
     if slot_idx < 0 or slot_idx >= len(cps):
         raise IndexError(f"slot_idx {slot_idx} out of range for {len(cps)} slots")
