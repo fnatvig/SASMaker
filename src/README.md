@@ -7,7 +7,10 @@ Double-click the file `setup_venv_win.bat` to create a virtual environment in a 
 
 
 ### macOS/Linux
-Run the file `setup_venv_linux.sh` to create a virtual environment in a folder called `venv` and install pandapower.
+```bash
+chmod +x setup_venv_linux.sh
+./setup_venv_linux.sh
+```
 
 ## How to run minimal example
 
