@@ -99,17 +99,6 @@ class Simulation:
 
 # --- Ready-made samplers -------------------------------------------------
 
-def sample_cts() -> SamplerFn:
-    """All CT primary currents (kA) as flat scalars."""
-    def _fn(s: "Substation") -> Dict[str, Any]:
-        out: Dict[str, Any] = {}
-        for name, ct in s.cts.items():
-            vals = ct.read_primary_current()
-            out[f"ct:{name}:Ia_ka"] = vals["Ia"]
-            out[f"ct:{name}:Ib_ka"] = vals["Ib"]
-            out[f"ct:{name}:Ic_ka"] = vals["Ic"]
-        return out
-    return _fn
 
 def sample_lines(line_names: List[str]) -> SamplerFn:
     """Per-phase from/to currents for selected lines (uses res_line_3ph)."""
@@ -136,7 +125,8 @@ def sample_buses(bus_names: List[str]) -> SamplerFn:
             bid = s.busbars[nm].idx
             row = s.net.res_bus_3ph.loc[bid]
             for col in row.index:
-                if col.startswith("vm_") or col.startswith("va_"):
+                # if col.startswith("vm_") or col.startswith("va_"):
+                if col.startswith("vm_"):
                     out[f"bus:{nm}:{col}"] = float(row[col])
         return out
     return _fn
@@ -146,6 +136,48 @@ def sample_cbs() -> SamplerFn:
         out = {}
         for nm, cb in s.cbs.items():
             out[f"cb:{nm}:closed"] = bool(cb.closed)
+        return out
+    return _fn
+
+def sample_ieds() -> SamplerFn:
+    """All CT primary currents (kA) as flat scalars."""
+    def _fn(s: "Substation") -> Dict[str, Any]:
+        out: Dict[str, Any] = {}
+        for name, ct in s.cts.items():
+
+            # CTs
+            vals = ct.read_primary_current()
+            vals_pwr = ct.read_power_flow()
+            out[f"ct:{name}:Ia_ka"] = vals["Ia"]
+            out[f"ct:{name}:Ib_ka"] = vals["Ib"]
+            out[f"ct:{name}:Ic_ka"] = vals["Ic"]
+            out[f"ct:{name}:Pa_mw"] = vals_pwr["Pa"]
+            out[f"ct:{name}:Pb_mw"] = vals_pwr["Pb"]
+            out[f"ct:{name}:Pc_mw"] = vals_pwr["Pc"]
+            out[f"ct:{name}:Qa_mvar"] = vals_pwr["Qa"]
+            out[f"ct:{name}:Qb_mvar"] = vals_pwr["Qb"]
+            out[f"ct:{name}:Qc_mvar"] = vals_pwr["Qc"]
+            
+            # Bus
+            nm = ct.get_bus_name()
+            bid = s.busbars[nm].idx
+            vn_kv = s.busbars[nm].vn_kv
+            row = s.net.res_bus_3ph.loc[bid]
+            ph_id = 0
+            for col in row.index:
+                # if col.startswith("vm_") or col.startswith("va_"):
+                ph = ["a","b","c"]
+                if col.startswith("vm_"):
+                    out[f"bus:{ct.get_bus_name()}:vm_{ph[ph_id]}_kv"] = float(row[col])*vn_kv
+                    ph_id+=1
+            
+            # CBs
+        for nm, cb in s.cbs.items():
+            out[f"cb:{nm}:closed"] = bool(cb.closed)
+        return out
+        return out
+        
+
         return out
     return _fn
 

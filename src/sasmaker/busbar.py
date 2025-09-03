@@ -5,7 +5,8 @@ class Busbar:
     def __init__(self, name: str, net, vn_kv: float, x: float = 0.0, y: float = 0.0,
                  draw_length: float | None = None,
                  draw_thickness: float | None = None,
-                 draw_slots: int | None = None):
+                 draw_slots: int | None = None,
+                 ext_grid: bool = False):
         self.name = name
         self._net = net
         self._devices = []
@@ -16,6 +17,7 @@ class Busbar:
         # plotting hints (do not affect pandapower)
         self._draw_length = draw_length
         self._draw_thickness = draw_thickness
+        self._ext_grid = ext_grid
         self._draw_slots = int(draw_slots) if draw_slots is not None else 1
 
     @property

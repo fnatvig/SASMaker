@@ -47,6 +47,7 @@ class Substation:
         self.ieds: dict[str, IED] = {}
         self.three_phase = True
 
+
     # ----- creation helpers -----
     def add_busbar(self,
                 name: str,
@@ -55,11 +56,12 @@ class Substation:
                 y: float = 0.0,
                 draw_length: float | None = None,
                 draw_thickness: float | None = None,
-                draw_slots: int | None = None):
+                draw_slots: int | None = None,
+                ext_grid: bool = False):
         bb = Busbar(name, self.net, vn_kv, x, y,
                     draw_length=draw_length,
                     draw_thickness=draw_thickness,
-                    draw_slots=draw_slots)
+                    draw_slots=draw_slots, ext_grid=ext_grid)
         self.busbars[name] = bb
         return bb
 
@@ -83,11 +85,6 @@ class Substation:
             )
         self.lines[name] = ln
         return ln
-    
-    def add_buslink(self, name: str, a: Busbar, b: Busbar, *, closed: bool = True) -> BusLink:
-        bl = BusLink(name, self.net, a.idx, b.idx, closed=closed)
-        self.buslinks[name] = bl
-        return bl
     
     def add_ext_grid(self, name: str, at_busbar: Busbar,
                  vm_pu: float = 1.0, va_degree: float = 0.0,
@@ -128,6 +125,14 @@ class Substation:
         ied = IED(name, ct=ct, cb=cb)
         self.ieds[name] = ied
         return ied
+    
+    def add_buslink(self, name: str, a, b, *, closed: bool = True) -> BusLink:
+        # accept Busbar objects or raw indices
+        a_idx = a.idx if hasattr(a, "idx") else int(a)
+        b_idx = b.idx if hasattr(b, "idx") else int(b)
+        bl = BusLink(name, self.net, a_idx, b_idx, closed=closed)
+        self.buslinks[name] = bl
+        return bl
     
     def run_simulation(self, sim: "Simulation"):
         from .simulation import Simulation  # local import to avoid cycles

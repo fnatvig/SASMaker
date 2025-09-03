@@ -20,6 +20,9 @@ class IED:
         self.ptoc = PTOC()        # can be disabled by not arming it
         self.ptrc = PTRC()
         self.xcbr = XCBR(cb) if cb else None
+        self.ct = ct.name
+        self.cb = cb.name
+        self.bb = ct.get_bus_name()
 
         # simple datapoint registry {str: callable}
         self._dp_get: Dict[str, callable] = {}

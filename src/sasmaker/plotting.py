@@ -22,7 +22,7 @@ def _edge_point_vertical(x_bar, y_bar, L, T, *, top: bool, x_target: float):
     return (x_hit, y_edge)
 
 def _draw_busbar(ax, x, y, L, T=0.01, color="black"):
-    rect = Rectangle((x - L/2, y - T/2), L, T, facecolor=color, edgecolor=color, zorder=3)
+    rect = Rectangle((x - L/2, y - T/2), L, T, facecolor=color, edgecolor=color, zorder=20)
     ax.add_patch(rect)
 
 def plot_one_line(substation, *,
@@ -64,8 +64,12 @@ def plot_one_line(substation, *,
         bus_CPX[bb.idx] = cpx
 
         if label_buses:
-            ax.text(x, y + T*1.2, f"{bb.name}-{bb.vn_kv}kV",
-                    ha="center", va="bottom", fontsize=9, zorder=100)
+            if bb._ext_grid:
+                ax.text(x, y + T*1.2, f"{bb.name}",
+                        ha="center", va="bottom", fontsize=9, zorder=100)
+            else:
+                ax.text(x, y + T*1.2, f"{bb.name}-{bb.vn_kv}kV",
+                        ha="center", va="bottom", fontsize=9, zorder=100)
 
     def _nearest_cp_x(bus_idx: int, x_target: float) -> float:
         cpx = bus_CPX[bus_idx]
@@ -138,95 +142,107 @@ def plot_one_line(substation, *,
         ax.scatter([ex], [ey], marker="v", color="black", s=40, zorder=3)
         ax.text(ex, ey - 0.05, name, ha="center", va="top", fontsize=8, zorder=4)
 
-    # --- draw CBs: snap to nearest CP (x fixed), offset only normal to the busbar ---
+    # --- draw CBs: support line-end *and* buslink CBs ------------------------
     cb_plot_pos = {}  # name -> (px, py)
-    for name, cb in substation.cbs.items():
-        b_here = cb.endpoint_bus()
-        xh, yh = bus_xy[b_here]
-        Lh, Th = bus_L[b_here], bus_T[b_here]
 
-        # decide top/bottom edge from the other bus (fallback to direction)
-        try:
-            b_oth = cb.other_bus()
-            xo, yo = bus_xy[b_oth]
-            top_edge = (yo > yh)
-            target_x = xo
-        except Exception:
-            _, _, _, uy = cb.endpoint_xy_and_dir()
-            top_edge = (uy > 0.0)
-            target_x = xh
-
-        # anchor at nearest CP on this bus
-        cp_x = _nearest_cp_x(b_here, target_x)
-        sx, sy = _edge_point_vertical(xh, yh, Lh, Th, top=top_edge, x_target=cp_x)
-
-        # place CB closer to bar than the CT
-        sign = 1.0 if top_edge else -1.0
-        gap = max(Th * 1.5, 0.08)     # distance from bus edge to CB
-        px, py = cp_x, sy + sign * gap
-        
-        cb_plot_pos[name] = (px, py)
-        # short stem from bar to CB
-        ax.plot([sx, px], [sy, py], linewidth=1.0, color=line_color, zorder=5)
-
-        # CB symbol: small square; if open, draw a diagonal gap
-        size = 0.015  # half-size in plot units
-        rect_x = [px - size, px + size, px + size, px - size, px - size]
-        rect_y = [py - size, py - size, py + size, py + size, py - size]
-        
-        if cb.closed:
-            ax.fill(rect_x, rect_y, linewidth=1.6, color="#FF0000", zorder=101)
+    def _draw_cb_symbol(px, py, *, closed: bool, size=0.015, color="#FF0000"):
+        # small square; filled if closed, outlined with a diagonal "gap" if open
+        rect_x = [px - size, px + size, px + size, px - size]
+        rect_y = [py - size, py - size, py + size, py + size]
+        if closed:
+            ax.fill(rect_x + [rect_x[0]], rect_y + [rect_y[0]], linewidth=1.2, color=color, zorder=101)
         else:
-            g = size * 0.85
-            ax.fill(rect_x, rect_y, linewidth=1.6, edgecolor="#FF0000", facecolor="#FFFFFF",  zorder=101)
-            # ax.plot([px - g, px + g], [py + sign * g * 0.5, py - sign * g * 0.5],
-            #         linewidth=1.6, zorder=7)
+            ax.fill(rect_x + [rect_x[0]], rect_y + [rect_y[0]],
+                    facecolor="white", edgecolor=color, linewidth=1.2, zorder=101)
+            # diagonal gap line
+            # ax.plot([px - size*0.7, px + size*0.7],
+            #         [py + size*0.7, py - size*0.7],
+            #         color=color, linewidth=1.2, zorder=102)
 
-        # label above/below the square
-        ax.text(px, py + sign * (size + 0.015), name, fontsize=8,
-                ha="center", va=("bottom" if sign > 0 else "top"), zorder=7)
+    for name, cb in substation.cbs.items():
+        target_kind = getattr(cb, "target_kind", "line")
 
-    # # --- draw CTs: snap to nearest CP (x fixed), offset only normal to the busbar ---
+        if target_kind == "line":
+            # ----- line-end CB (your old logic, but wrapped) -----
+            b_here = cb.endpoint_bus()
+            xh, yh = bus_xy[b_here]
+            Lh, Th = bus_L[b_here], bus_T[b_here]
+            # decide top/bottom by other bus
+            try:
+                b_oth = cb.other_bus()
+                xo, yo = bus_xy[b_oth]
+                top_edge = (yo > yh)
+                target_x = xo
+            except Exception:
+                _, _, _, uy = cb.endpoint_xy_and_dir()
+                top_edge = (uy > 0.0)
+                target_x = xh
+
+            # anchor at nearest CP
+            cp_x = _nearest_cp_x(b_here, target_x)
+            sx, sy = _edge_point_vertical(xh, yh, Lh, Th, top=top_edge, x_target=cp_x)
+
+            sign = 1.0 if top_edge else -1.0
+            gap = max(Th * 1.5, 0.08)
+            px, py = cp_x, sy + sign * gap
+            cb_plot_pos[name] = (px, py)
+
+            # short stem + symbol + label
+            ax.plot([sx, px], [sy, py], linewidth=1.0, color=line_color, zorder=5)
+            _draw_cb_symbol(px, py, closed=cb.closed)
+            ax.text(px, py + sign * 0.03, name, fontsize=8,
+                    ha="center", va=("bottom" if sign > 0 else "top"), zorder=10)
+
+        else:
+            # ----- buslink CB: place at midpoint between the two buses -----
+            a, b = cb.buses()
+            xa, ya = bus_xy[a]; xb, yb = bus_xy[b]
+            mx, my = (xa + xb) * 0.5, (ya + yb) * 0.5
+            cb_plot_pos[name] = (mx, my)
+
+            # draw a short stub along the line between buses for visual context
+            ax.plot([xa, xb], [ya, yb], linestyle=":", color="#888888", linewidth=0.8, zorder=1, alpha=0.6)
+
+            _draw_cb_symbol(mx, my, closed=cb.closed)
+            # offset label slightly orthogonal to link so it doesn't sit on the symbol
+            dx, dy = xb - xa, yb - ya
+            L = (dx**2 + dy**2) ** 0.5 or 1.0
+            nx, ny = -dy / L, dx / L  # normal
+            ax.text(mx + nx * 0.03, my + ny * 0.03, name, fontsize=8,
+                    ha="center", va="center", zorder=105)
+
+    # --- draw CTs: snap to nearest CP (x fixed), offset only normal to the busbar ---
     ct_plot_pos = {}
     for name, ct in substation.cts.items():
         b_here = ct.endpoint_bus()
         xh, yh = bus_xy[b_here]
         Lh, Th = bus_L[b_here], bus_T[b_here]
 
-        # figure which edge to exit (other bus above → top, else bottom)
         try:
             b_oth = ct.other_bus()
             xo, yo = bus_xy[b_oth]
             top_edge = (yo > yh)
             target_x = xo
         except Exception:
-            # fallback if line missing: use direction sign
             _, _, _, uy = ct.endpoint_xy_and_dir()
             top_edge = (uy > 0.0)
             target_x = xh
 
-        # anchor at the nearest CP on this bus
         cp_x = _nearest_cp_x(b_here, target_x)
         sx, sy = _edge_point_vertical(xh, yh, Lh, Th, top=top_edge, x_target=cp_x)
 
-        # move the CT straight out, perpendicular to the bar (no horizontal drift)
         sign = 1.0 if top_edge else -1.0
-        gap = max(Th * 3, 0.16)  # keep the circle clear of the bar; tweak if needed
+        gap = max(Th * 3.0, 0.16)
         px, py = cp_x, sy + sign * gap
 
         ct_plot_pos[name] = (px, py)
-        # optional tiny stem from edge to the CT
         ax.plot([cp_x, px], [sy, py], linewidth=1.0, color=line_color, zorder=5)
-
-        # outlined circle
         ax.scatter([px], [py], marker="o", s=80, facecolors="none",
                    edgecolors="black", linewidths=1.5, zorder=6)
-
-        # label, just beyond the circle
         ax.text(px, py + sign * 0.025, name, fontsize=8,
                 ha="center", va=("bottom" if sign > 0 else "top"), zorder=7)
-        
-        # --- draw IEDs: rounded box aligned to bay CP; dashed links to CB/CT ---
+
+    # --- draw IEDs: rounded box aligned to bay CP; dashed links to CB/CT -----
     def _ied_anchor_from_endpoint(bus_idx: int, other_bus_idx: int | None):
         xh, yh = bus_xy[bus_idx]
         Lh, Th = bus_L[bus_idx], bus_T[bus_idx]
@@ -235,7 +251,6 @@ def plot_one_line(substation, *,
             top_edge = (yo > yh)
             target_x = xo
         else:
-            # default to bottom edge if unknown
             top_edge = False
             target_x = xh
         cp_x = _nearest_cp_x(bus_idx, target_x)
@@ -244,81 +259,72 @@ def plot_one_line(substation, *,
         return cp_x, sx, sy, sign, Th
 
     for ied_name, ied in substation.ieds.items():
-        # Choose bay anchor from CB first (preferred), else CT
         cb_obj = getattr(ied, "xcbr", None)
         cb_src = getattr(cb_obj, "_cb", None) if cb_obj else None
         ct_obj = getattr(ied, "mmxu", None)
         ct_src = getattr(ct_obj, "_ct", None) if ct_obj else None
 
-        b_here = None
-        b_oth  = None
-        if cb_src is not None:
-            # endpoint and opposite bus from CB's line
+        # Figure bay anchor using CB if possible, else CT; handle buslink/line cases
+        b_here = b_oth = None
+        if cb_src is not None and getattr(cb_src, "target_kind", "line") == "line":
             b_here = cb_src.endpoint_bus()
             b_oth  = cb_src.other_bus()
         elif ct_src is not None:
             b_here = ct_src.endpoint_bus()
             b_oth  = ct_src.other_bus()
-        else:
-            continue  # IED not wired to anything
+        elif cb_src is not None and getattr(cb_src, "target_kind", "line") == "buslink":
+            # anchor to whichever bus is lower to keep consistent vertical layout
+            a, b = cb_src.buses()
+            b_here = a
+            b_oth  = b
+
+        if b_here is None:
+            continue  # not wired
 
         cp_x, sx, sy, sign, Th = _ied_anchor_from_endpoint(b_here, b_oth)
 
-        # place IED further out than CT (so order is: bus -> CB -> CT -> IED)
-        gap_cb = max(Th * 1.0, 0.04)
-        gap_ct = max(Th * 1.4, 0.08)
+        # place IED further out than CT (order: bus -> CB -> CT -> IED)
         gap_ied = max(Th * 2.2, 0.14)
-        px_cb  = sy + sign * gap_cb
-        px_ct  = sy + sign * gap_ct
         py_ied = sy + sign * gap_ied
-        px_ied = sy + sign * gap_ied
 
-        # IED box size (in plot units)
+        # IED box
         box_w = 0.09
         box_h = 0.04
-
-        # dashed links to CB / CT if we know their plotted positions
-        # find the actual plotted CB/CT points for THIS bay (by object identity)
-        cb_name = next((n for n, obj in substation.cbs.items() if obj is cb_src), None) if cb_src else None
-        ct_name = next((n for n, obj in substation.cts.items() if obj is ct_src), None) if ct_src else None
-
-        box_x = cp_x - 2*box_w
-        box_y = None
-        if cb_plot_pos[cb_name][1] < ct_plot_pos[ct_name][1]:
-            box_y = py_ied - box_h
-        else: 
-            box_y = py_ied
+        box_x = cp_x - 2 * box_w
+        box_y = py_ied - box_h / 2.0
 
         box = FancyBboxPatch(
             (box_x, box_y),
             box_w, box_h,
             boxstyle="round,pad=0.01,rounding_size=0.01",
-            facecolor="white", edgecolor="black", linewidth=1.2, zorder=7
+            facecolor="white", edgecolor="black", linewidth=1.2, zorder=110
         )
         ax.add_patch(box)
-        ax.text(box_x+box_w/2, box_y+box_h/2, ied_name, ha="center", va="center", fontsize=8, zorder=8)
+        ax.text(box_x + box_w/2, box_y + box_h/2, ied_name,
+                ha="center", va="center", fontsize=8, zorder=111)
 
-        
-        
-        if cb_name in cb_plot_pos:
-            cx, cy = cb_plot_pos[cb_name]
-            if cy < ct_plot_pos[ct_name][1]:
-                ax.plot([box_x+box_w, cx], [box_y+box_h/2, cy], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
-            else: 
-                ax.plot([box_x+box_w, cx], [box_y+box_h/2, cy], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
+        # dashed links to whichever exist
+        def _maybe_link(target_pos_dict, target_name):
+            if target_name is None:
+                return
+            pos = target_pos_dict.get(target_name)
+            if pos is None:
+                return
+            tx, ty = pos
+            ax.plot([box_x + box_w, tx], [box_y + box_h/2, ty],
+                    linestyle="--", linewidth=0.8, color="#000000", zorder=10)
 
-        else:
-            # fall back to a small dashed link towards the bay centerline
-            ax.plot([cp_x, cp_x], [py_ied, px_cb], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
+        cb_name = None
+        if cb_src is not None:
+            # find CB's registered name (by identity)
+            cb_name = next((n for n, obj in substation.cbs.items() if obj is cb_src), None)
 
-        if ct_name in ct_plot_pos:
-            tx, ty = ct_plot_pos[ct_name]
-            if ty < cb_plot_pos[cb_name][1]:
-                ax.plot([box_x+box_w, tx], [box_y+box_h/2, ty], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
-            else:
-                ax.plot([box_x+box_w, tx], [box_y+box_h/2, ty], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
-        else:
-            ax.plot([cp_x, cp_x], [py_ied, px_ct], linestyle="--", linewidth=0.8, color="#000000", zorder=6)
+        ct_name = None
+        if ct_src is not None:
+            ct_name = next((n for n, obj in substation.cts.items() if obj is ct_src), None)
+
+        _maybe_link(cb_plot_pos, cb_name)
+        _maybe_link(ct_plot_pos, ct_name)
 
 
     ax.set_aspect("equal", adjustable="datalim")

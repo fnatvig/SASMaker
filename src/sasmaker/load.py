@@ -45,8 +45,9 @@ class Load:
         Daily sinusoidal profile. 
         t in hours, period defaults to 24h.
         """
-        factor = 0.8 + 0.4*math.sin(2*math.pi * (t % period) / period)  # between 0.4 and 1.2
-        self.set_power(base_p * factor, base_q * factor)
+        factor_p = 1.0 + 0.05*math.sin(2*math.pi * (t % period) / period)  # between 0.95 and 1.05
+        factor_q = 1.0 + 0.05*math.sin(+2*math.pi * (t % period) / period + period/6)  # between 0.95 and 1.05
+        self.set_power(base_p * factor_p, base_q * factor_q)
 
     def set_base(self, p_mw: float, q_mvar: float):
         self.base_p = float(p_mw); self.base_q = float(q_mvar)
