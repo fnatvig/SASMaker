@@ -88,16 +88,16 @@ def generate_values_df(df, ied):
     pf = (P.abs() / S).fillna(0.0)
     df_new = pd.DataFrame()
 
-    df_new[col_headers[0]] = list(cb_status)
+    df_new[col_headers[0]] = ["TRUE" if i else "FALSE" for i in list(cb_status)]
     df_new[col_headers[1]] = len(df)*[1]
     df_new[col_headers[2]] = len(df)*[0]
     df_new[col_headers[3]] = len(df)*[1]
-    df_new[col_headers[4]] = len(df)*[False]
-    df_new[col_headers[5]] = cb_tripped
+    df_new[col_headers[4]] = len(df)*["FALSE"]
+    df_new[col_headers[5]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
     df_new[col_headers[6]] = len(df)*[1]
-    df_new[col_headers[7]] = len(df)*[False]
-    df_new[col_headers[8]] = cb_tripped
-    df_new[col_headers[9]] = len(df)*[False]
+    df_new[col_headers[7]] = len(df)*["FALSE"]
+    df_new[col_headers[8]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+    df_new[col_headers[9]] = len(df)*["FALSE"]
     
     # currents
     df_new[col_headers[10]] = list(current_a.astype('int32'))
