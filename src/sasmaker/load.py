@@ -1,5 +1,7 @@
 import pandapower as pp
 import math
+import random
+random.seed(10)
 
 class Load:
     """3φ load using pandapower's asymmetric_load (per-phase P/Q)."""
@@ -9,18 +11,31 @@ class Load:
         self._bus_idx = int(bus_idx)   # <-- backing field
         self.base_p = float(p_mw)
         self.base_q = float(q_mvar)
+        self.fa = 0.329
+        self.fb = 0.333
+        self.fc = 0.338
 
 
         # equal per-phase split by default
-        pa = p_mw / 3.0
-        qa = q_mvar / 3.0
+        # pa = p_mw / 3.0
+        # qa = q_mvar / 3.0
+
+        
+        # Active power split
+        pa = self.fa * p_mw
+        pb = self.fb * p_mw
+        pc = self.fc * p_mw
+        
+        qa = self.fa * q_mvar
+        qb = self.fb * q_mvar
+        qc = self.fc * q_mvar
 
         self.idx = pp.create_asymmetric_load(
             net,
             bus=self._bus_idx,        # use backing field here
             p_a_mw=pa, q_a_mvar=qa,
-            p_b_mw=pa, q_b_mvar=qa,
-            p_c_mw=pa, q_c_mvar=qa,
+            p_b_mw=pb, q_b_mvar=qb,
+            p_c_mw=pc, q_c_mvar=qc,
             name=name,
             in_service=True
         )
@@ -31,13 +46,38 @@ class Load:
 
     def set_power(self, p_mw: float, q_mvar: float):
         """Overwrite per-phase powers with an equal split."""
-        pa = p_mw / 3.0
-        qa = q_mvar / 3.0
+        # pa = p_mw / 3.0
+        # qa = q_mvar / 3.0
+        temp = random.random()
+        
+        if temp<0.3:
+            pa = self.fa * p_mw
+            pb = self.fb * p_mw
+            pc = self.fc * p_mw
+            qa = self.fa * q_mvar
+            qb = self.fb * q_mvar
+            qc = self.fc * q_mvar
+        elif temp>0.6:
+            pa = self.fc * p_mw
+            pb = self.fa * p_mw
+            pc = self.fb * p_mw
+            qa = self.fc * q_mvar
+            qb = self.fa * q_mvar
+            qc = self.fb * q_mvar
+        else: 
+            pa = self.fb * p_mw
+            pb = self.fc * p_mw
+            pc = self.fa * p_mw
+            qa = self.fb * q_mvar
+            qb = self.fc * q_mvar
+            qc = self.fa * q_mvar
+
+
         t = self._net.asymmetric_load
         i = self.idx
         t.at[i, "p_a_mw"] = pa; t.at[i, "q_a_mvar"] = qa
-        t.at[i, "p_b_mw"] = pa; t.at[i, "q_b_mvar"] = qa
-        t.at[i, "p_c_mw"] = pa; t.at[i, "q_c_mvar"] = qa
+        t.at[i, "p_b_mw"] = pb; t.at[i, "q_b_mvar"] = qb
+        t.at[i, "p_c_mw"] = pc; t.at[i, "q_c_mvar"] = qc
 
 
     def profile(self, base_p: float, base_q: float, t: float, period: float = 24.0):

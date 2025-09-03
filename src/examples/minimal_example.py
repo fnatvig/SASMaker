@@ -56,6 +56,7 @@ ied3.ptoc.pickup_ka = 0.2
 sim = Simulation("step load", t_end=10, dt=0.1, vary_loads=True)
 
 
+
 # Event scheduler
 # inject_overcurrent_on_line_to_bus(sim, t0=0.6, duration=0.4, line_name="L3", factor=1.5)
 
