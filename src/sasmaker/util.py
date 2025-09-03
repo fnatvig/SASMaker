@@ -88,7 +88,7 @@ def generate_values_df(df, ied):
     pf = (P.abs() / S).fillna(0.0)
     df_new = pd.DataFrame()
 
-    df_new[col_headers[0]] = ["TRUE" if i else "FALSE" for i in list(cb_status)]
+    df_new[col_headers[0]] = list(cb_status)
     df_new[col_headers[1]] = len(df)*[1]
     df_new[col_headers[2]] = len(df)*[0]
     df_new[col_headers[3]] = len(df)*[1]
