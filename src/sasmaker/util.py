@@ -145,9 +145,9 @@ def generate_values_df(df, ied):
     df_new[col_headers[11]] = list(current_c.astype('int32'))
 
     # voltages
-    df_new[col_headers[12]] = list(voltage_a.astype('int32'))
-    df_new[col_headers[13]] = list(voltage_b.astype('int32'))
-    df_new[col_headers[14]] = list(voltage_c.astype('int32'))
+    df_new[col_headers[12]] = [0.0 if i!=0 else i for i in list(voltage_a.astype('int32'))]
+    df_new[col_headers[13]] = [0.0 if i!=0 else i for i in list(voltage_b.astype('int32'))]
+    df_new[col_headers[14]] = [0.0 if i!=0 else i for i in list(voltage_c.astype('int32'))]
 
     # powers
     df_new[col_headers[15]] = list(P.astype('int32'))
@@ -182,9 +182,9 @@ def create_interfaces(numIEDs):
     print("Interfaces Setup")
 
     # automatic cleanup wiring
-    atexit.register(_cleanup_interfaces, numIEDs)
-    signal.signal(signal.SIGINT,  lambda s, f: _signal_handler(s, f, numIEDs))
-    signal.signal(signal.SIGTERM, lambda s, f: _signal_handler(s, f, numIEDs))
+    # atexit.register(_cleanup_interfaces, numIEDs)
+    # signal.signal(signal.SIGINT,  lambda s, f: _signal_handler(s, f, numIEDs))
+    # signal.signal(signal.SIGTERM, lambda s, f: _signal_handler(s, f, numIEDs))
 
     print("Enabling dummy kernel module")
     os.system ("sudo modprobe dummy")
