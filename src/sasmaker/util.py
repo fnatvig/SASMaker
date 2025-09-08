@@ -60,7 +60,7 @@ def generate_values_df(df, ied):
     col_headers = ["Circuit breaker Open/Close Status", 
             "Disconnector Open/Close Status", 
             # "Earth switch Open/Close Status", 
-            # "Protection system healthy (Trip circuit healthy)", 
+            "Protection system healthy (Trip circuit healthy)", 
             "Control level - Local or remote", 
             "Protection tripped", 
             "Circuit breaker mechanical failure", 
@@ -129,35 +129,35 @@ def generate_values_df(df, ied):
     # df_new[col_headers[19]] = list(np.round(pf, decimals=2))
 
     df_new[col_headers[0]] = list(cb_status)
-    # df_new[col_headers[1]] = len(df)*[1]
-    # df_new[col_headers[2]] = len(df)*[0]
     df_new[col_headers[1]] = len(df)*[1]
-    df_new[col_headers[2]] = len(df)*["FALSE"]
-    df_new[col_headers[3]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    df_new[col_headers[4]] = len(df)*[1]
-    df_new[col_headers[5]] = len(df)*["FALSE"]
-    df_new[col_headers[6]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    df_new[col_headers[7]] = len(df)*["FALSE"]
+    # df_new[col_headers[2]] = len(df)*[0]
+    df_new[col_headers[2]] = len(df)*[1]
+    df_new[col_headers[3]] = len(df)*["FALSE"]
+    df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+    df_new[col_headers[5]] = len(df)*[1]
+    df_new[col_headers[6]] = len(df)*["FALSE"]
+    df_new[col_headers[7]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+    df_new[col_headers[8]] = len(df)*["FALSE"]
     
     # currents
-    df_new[col_headers[8]] = list(current_a.astype('int32'))
-    df_new[col_headers[9]] = list(current_b.astype('int32'))
-    df_new[col_headers[10]] = list(current_c.astype('int32'))
+    df_new[col_headers[9]] = list(current_a.astype('int32'))
+    df_new[col_headers[10]] = list(current_b.astype('int32'))
+    df_new[col_headers[11]] = list(current_c.astype('int32'))
 
     # voltages
-    df_new[col_headers[11]] = list(voltage_a.astype('int32'))
-    df_new[col_headers[12]] = list(voltage_b.astype('int32'))
-    df_new[col_headers[13]] = list(voltage_c.astype('int32'))
+    df_new[col_headers[12]] = list(voltage_a.astype('int32'))
+    df_new[col_headers[13]] = list(voltage_b.astype('int32'))
+    df_new[col_headers[14]] = list(voltage_c.astype('int32'))
 
     # powers
-    df_new[col_headers[14]] = list(P.astype('int32'))
-    df_new[col_headers[15]] = list(Q.astype('int32'))
+    df_new[col_headers[15]] = list(P.astype('int32'))
+    df_new[col_headers[16]] = list(Q.astype('int32'))
     
     # frequency
-    df_new[col_headers[16]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
+    df_new[col_headers[17]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
 
     # power factor
-    df_new[col_headers[17]] = list(np.round(pf, decimals=2))
+    df_new[col_headers[18]] = list(np.round(pf, decimals=2))
 
     
     return df_new

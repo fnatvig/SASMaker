@@ -55,12 +55,12 @@ ied3.ptoc.pickup_ka = 0.2
 
 
 # Simulation conf
-sim = Simulation("step load", t_end=10, dt=0.1, vary_loads=True)
+sim = Simulation("step load", t_end=2, dt=0.1, vary_loads=True)
 
 
 
 # Event scheduler
-# inject_overcurrent_on_line_to_bus(sim, t0=0.6, duration=0.4, line_name="L3", factor=1.5)
+inject_overcurrent_on_line_to_bus(sim, t0=0.6, duration=0.4, line_name="L3", factor=1.75)
 
 # Determining what data to inspect/export
 sim.add_sampler(sample_ieds())
@@ -75,7 +75,7 @@ create_interfaces(numIEDs = len(ieds))
 
 for ied in ieds:
     df = generate_values_df(sim_data, ied)
-    df.to_csv(f"./toolchain/SASMaker_{ied.name}/value.csv", header=False) 
+    df.to_csv(f"./toolchain/SASMaker_{ied.name}/value.csv", header=False, index=False) 
 
 
 
