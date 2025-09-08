@@ -140,14 +140,70 @@ int main(int argc, char **argv) {
 				firstPublishGoose=false;
 				strcpy(lastBuffer, buffer);
 			}else{// manually update: stnum++, sqnum=0, if value changed, updateStNum. otherwise, sq++ st keeps the same value.
-				if(strcmp(buffer,lastBuffer)){ //if current and history buff is different, update st++
-					updateStNum(iedServer);
-					//printf("update st\n");
-				}else{
-					//printf("not update st!\n");
-				}
-				strcpy(lastBuffer, buffer);
+			// compare only first 9 columns (up to 9th co141mma)
+
+			int commas_curr =
+			0, commas_last =
+			0;
+
+			int diff =
+			0;
+
+			for (size_t
+			i = 0; 
+			buffer[i] != 
+			'\0' &&
+			lastBuffer[i] !=
+			'\0';
+			i++) {
+
+			if (buffer[i] ==
+			',') commas_curr++;
+
+			if (lastBuffer[i] ==
+			',') commas_last++;
+
+			if (commas_curr >=
+			9 || commas_last >=
+			9) {
+
+			break; // stop comparison after 9th column
+
 			}
+
+			if (buffer[i] !=
+			lastBuffer[i]) {
+
+			diff = 1;
+
+			break;
+
+			}
+
+			}
+
+
+
+			// decide based on diff
+
+			if (diff) {
+
+			updateStNum(iedServer);
+
+			}
+
+			strcpy(lastBuffer,
+			buffer);
+
+
+			//	if(strcmp(buffer,lastBuffer)){ //if current and history buff is different, update st++
+			//		updateStNum(iedServer);
+			//		//printf("update st\n");
+			//	}else{
+			//		//printf("not update st!\n");
+			//	}
+			//	strcpy(lastBuffer, buffer);
+	}
 			//launch modify attack
 			if(enableModifyAttack){
 				launchModifyAttack(iedServer,results);

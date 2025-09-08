@@ -18,9 +18,9 @@ processes = []
 
 #Folder where to grab configurations, interface, portnumber, duration
 #The folder depends on the IED so one folder per type of IED..
-arg1=["SASMaker_IED1", "veth1.1", "102", "60"]
-arg2=["SASMaker_IED2", "veth1.2", "103", "60"]
-arg3=["SASMaker_IED3", "veth1.3", "104", "60"]
+arg1=["SASMaker_IED1", "veth1.1", "102", "20"]
+arg2=["SASMaker_IED2", "veth1.2", "103", "20"]
+arg3=["SASMaker_IED3", "veth1.3", "104", "20"]
 
 args=[arg1,arg2, arg3]
 print (args)
