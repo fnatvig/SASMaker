@@ -1,6 +1,0 @@
-<?xml version="1.0"?>
-<Simulations>
-	<IED name="IED1" folder="IED_A" interface="veth1.1" port="102" duration="10"/>
-        <IED name="IED2" folder="IED_A" interface="veth1.2" port="103" duration="10"/>
-
-</Simulations>

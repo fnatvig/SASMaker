@@ -1,6 +1,5 @@
 import time
 import os
-import simulationParser
 from multiprocessing import Process
 from array import *
 milli_sec = int(round(time.time() * 1000000))/1000000
