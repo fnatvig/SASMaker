@@ -64,10 +64,13 @@ if [ "$MAJOR" -ne 3 ] || [ "$MINOR" -ne 10 ]; then
 
 fi
 
-
-
-
-
+# --- check for tshark (required by pyshark) ---
+if ! command -v tshark &> /dev/null; then
+    echo "Warning: tshark is not installed."
+    echo "Please install it via your system package manager (e.g., sudo apt-get install tshark)"
+    echo "Pyshark will not work properly without tshark available in PATH."
+    echo
+fi
 
 
 echo "Creating virtual environment in ./venv ..."
@@ -99,6 +102,7 @@ echo "Upgrading pip..."
 
 
 python -m pip install --upgrade pip
+
 
 
 

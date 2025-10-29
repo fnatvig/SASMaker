@@ -78,89 +78,100 @@ def generate_values_df(df, ied):
             "Frequency", 
             "Power Factor"]
     
+    if ied.ct == None:
+        voltage_a = df[f"vt:{ied.bb}:vm_a_kv"]*1000/np.sqrt(3)
+        voltage_b = df[f"vt:{ied.bb}:vm_b_kv"]*1000/np.sqrt(3)
+        voltage_c = df[f"vt:{ied.bb}:vm_c_kv"]*1000/np.sqrt(3)
 
-    cb_status = df[f"cb:{ied.cb}:closed"].astype('int32')
-    cb_tripped = list(cb_status.eq(0))
+        df_new = pd.DataFrame()
+        df_new[col_headers[6]] = len(df)*["FALSE"]
+        df_new[col_headers[9]] = list(voltage_a.astype('int32'))
+        df_new[col_headers[10]] = list(voltage_b.astype('int32'))
+        df_new[col_headers[11]] = list(voltage_c.astype('int32'))
+        df_new[col_headers[17]] = len(df)*[50.0] 
+        return df_new
+    else:
+        cb_status = df[f"cb:{ied.cb}:closed"].astype('int32')
+        cb_tripped = list(cb_status.eq(0))
 
-    current_a = df[f"ct:{ied.ct}:Ia_ka"]*1000 
-    current_b = df[f"ct:{ied.ct}:Ib_ka"]*1000
-    current_c = df[f"ct:{ied.ct}:Ic_ka"]*1000
-    
-    voltage_a = df[f"bus:{ied.bb}:vm_a_kv"]*1000/np.sqrt(3)
-    voltage_b = df[f"bus:{ied.bb}:vm_b_kv"]*1000/np.sqrt(3)
-    voltage_c = df[f"bus:{ied.bb}:vm_c_kv"]*1000/np.sqrt(3)
+        current_a = df[f"ct:{ied.ct}:Ia_ka"]*1000 
+        current_b = df[f"ct:{ied.ct}:Ib_ka"]*1000
+        current_c = df[f"ct:{ied.ct}:Ic_ka"]*1000
+        
+        voltage_a = df[f"bus:{ied.bb}:vm_a_kv"]*1000/np.sqrt(3)
+        voltage_b = df[f"bus:{ied.bb}:vm_b_kv"]*1000/np.sqrt(3)
+        voltage_c = df[f"bus:{ied.bb}:vm_c_kv"]*1000/np.sqrt(3)
 
-    P = (df[f"ct:{ied.ct}:Pa_mw"] + df[f"ct:{ied.ct}:Pb_mw"] + df[f"ct:{ied.ct}:Pa_mw"])*1000000
-    Q = (df[f"ct:{ied.ct}:Qa_mvar"] + df[f"ct:{ied.ct}:Qb_mvar"] + df[f"ct:{ied.ct}:Qa_mvar"])*1000000
-    S = np.hypot(P, Q)
+        P = (df[f"ct:{ied.ct}:Pa_mw"] + df[f"ct:{ied.ct}:Pb_mw"] + df[f"ct:{ied.ct}:Pa_mw"])*1000000
+        Q = (df[f"ct:{ied.ct}:Qa_mvar"] + df[f"ct:{ied.ct}:Qb_mvar"] + df[f"ct:{ied.ct}:Qa_mvar"])*1000000
+        S = np.hypot(P, Q)
 
-    pf = (P.abs() / S).fillna(0.0)
-    df_new = pd.DataFrame()
+        pf = (P.abs() / S).fillna(0.0)
+        df_new = pd.DataFrame()
 
-    # df_new[col_headers[0]] = list(cb_status)
-    # df_new[col_headers[1]] = len(df)*[1]
-    # df_new[col_headers[2]] = len(df)*[0]
-    # df_new[col_headers[3]] = len(df)*[1]
-    # df_new[col_headers[4]] = len(df)*["FALSE"]
-    # df_new[col_headers[5]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    # df_new[col_headers[6]] = len(df)*[1]
-    # df_new[col_headers[7]] = len(df)*["FALSE"]
-    # df_new[col_headers[8]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    # df_new[col_headers[9]] = len(df)*["FALSE"]
-    
-    # # currents
-    # df_new[col_headers[10]] = list(current_a.astype('int32'))
-    # df_new[col_headers[11]] = list(current_b.astype('int32'))
-    # df_new[col_headers[12]] = list(current_c.astype('int32'))
+        # df_new[col_headers[0]] = list(cb_status)
+        # df_new[col_headers[1]] = len(df)*[1]
+        # df_new[col_headers[2]] = len(df)*[0]
+        # df_new[col_headers[3]] = len(df)*[1]
+        # df_new[col_headers[4]] = len(df)*["FALSE"]
+        # df_new[col_headers[5]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+        # df_new[col_headers[6]] = len(df)*[1]
+        # df_new[col_headers[7]] = len(df)*["FALSE"]
+        # df_new[col_headers[8]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+        # df_new[col_headers[9]] = len(df)*["FALSE"]
+        
+        # # currents
+        # df_new[col_headers[10]] = list(current_a.astype('int32'))
+        # df_new[col_headers[11]] = list(current_b.astype('int32'))
+        # df_new[col_headers[12]] = list(current_c.astype('int32'))
 
-    # # voltages
-    # df_new[col_headers[13]] = list(voltage_a.astype('int32'))
-    # df_new[col_headers[14]] = list(voltage_b.astype('int32'))
-    # df_new[col_headers[15]] = list(voltage_c.astype('int32'))
+        # # voltages
+        # df_new[col_headers[13]] = list(voltage_a.astype('int32'))
+        # df_new[col_headers[14]] = list(voltage_b.astype('int32'))
+        # df_new[col_headers[15]] = list(voltage_c.astype('int32'))
 
-    # # powers
-    # df_new[col_headers[16]] = list(P.astype('int32'))
-    # df_new[col_headers[17]] = list(Q.astype('int32'))
-    
-    # # frequency
-    # df_new[col_headers[18]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
+        # # powers
+        # df_new[col_headers[16]] = list(P.astype('int32'))
+        # df_new[col_headers[17]] = list(Q.astype('int32'))
+        
+        # # frequency
+        # df_new[col_headers[18]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
 
-    # # power factor
-    # df_new[col_headers[19]] = list(np.round(pf, decimals=2))
+        # # power factor
+        # df_new[col_headers[19]] = list(np.round(pf, decimals=2))
 
-    df_new[col_headers[0]] = list(cb_status)
-    df_new[col_headers[1]] = len(df)*[1]
-    # df_new[col_headers[2]] = len(df)*[0]
-    df_new[col_headers[2]] = len(df)*[1]
-    df_new[col_headers[3]] = len(df)*["FALSE"]
-    df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    df_new[col_headers[5]] = len(df)*[1]
-    df_new[col_headers[6]] = len(df)*["FALSE"]
-    df_new[col_headers[7]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-    df_new[col_headers[8]] = len(df)*["FALSE"]
-    
-    # currents
-    df_new[col_headers[9]] = list(current_a.astype('int32'))
-    df_new[col_headers[10]] = list(current_b.astype('int32'))
-    df_new[col_headers[11]] = list(current_c.astype('int32'))
+        df_new[col_headers[0]] = list(cb_status)
+        df_new[col_headers[1]] = len(df)*[1]
+        # df_new[col_headers[2]] = len(df)*[0]
+        df_new[col_headers[2]] = len(df)*[1]
+        df_new[col_headers[3]] = len(df)*["FALSE"]
+        df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+        df_new[col_headers[5]] = len(df)*[1]
+        df_new[col_headers[6]] = len(df)*["FALSE"]
+        df_new[col_headers[7]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+        df_new[col_headers[8]] = len(df)*["FALSE"]
+        
+        # currents
+        df_new[col_headers[9]] = list(current_a.astype('int32'))
+        df_new[col_headers[10]] = list(current_b.astype('int32'))
+        df_new[col_headers[11]] = list(current_c.astype('int32'))
 
-    # voltages
-    df_new[col_headers[12]] = [0.0 if i!=0 else i for i in list(voltage_a.astype('int32'))]
-    df_new[col_headers[13]] = [0.0 if i!=0 else i for i in list(voltage_b.astype('int32'))]
-    df_new[col_headers[14]] = [0.0 if i!=0 else i for i in list(voltage_c.astype('int32'))]
+        # voltages
+        df_new[col_headers[12]] = list(voltage_a.astype('int32'))
+        df_new[col_headers[13]] = list(voltage_b.astype('int32'))
+        df_new[col_headers[14]] = list(voltage_c.astype('int32'))
 
-    # powers
-    df_new[col_headers[15]] = list(P.astype('int32'))
-    df_new[col_headers[16]] = list(Q.astype('int32'))
-    
-    # frequency
-    df_new[col_headers[17]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
+        # powers
+        df_new[col_headers[15]] = list(abs(P.astype('int32')))
+        df_new[col_headers[16]] = list(abs(Q.astype('int32')))
+        
+        # frequency
+        df_new[col_headers[17]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
 
-    # power factor
-    df_new[col_headers[18]] = list(np.round(pf, decimals=2))
+        # power factor
+        df_new[col_headers[18]] = list(np.round(pf, decimals=2))
 
-    
-    return df_new
+        return df_new
 
 def _cleanup_interfaces(numIEDs: int):
     # Delete macvlan children first
@@ -176,7 +187,7 @@ def _signal_handler(sig, frame, numIEDs):
     _cleanup_interfaces(numIEDs)
     sys.exit(0)
 
-def create_interfaces(numIEDs):
+def create_interfaces(ieds):
 
     print("SASMaker v1.0")
     print("Interfaces Setup")
@@ -201,23 +212,26 @@ def create_interfaces(numIEDs):
     print("put the interface up")
     os.system ("sudo ip link set dev veth1 up")
 
-    for x in range (numIEDs):
+    for x in range (len(ieds)):
             ied = x+1
-            print("Creating and enabling the virtual interface for IED"+str(ied))
-            os.system("sudo ip link add link veth1 address 'A2:2E:D6:80:A8:"+str(ied*11)+"' veth1."+str(ied)+" type macvlan mode bridge")
+            print(f"Creating and enabling the virtual interface for "+str(ieds[x].name))
+            os.system("sudo ip link add link veth1 address 'A2:2E:D6:80:A8:"+("%02X" % ((ied*11) & 0xFF))+"' veth1."+str(ied)+" type macvlan mode bridge")
             os.system("sudo ifconfig veth1."+str(ied)+" up")
 
-def spawn_script(cwd=None, python=None, py_paths=None):
+def spawn_script(cwd=None, python=None, py_paths=None, args=None):
     script = "toolchain.py"
     python = python or sys.executable
     argv = [python, script]
+
+    if args:
+        argv.extend(args)
 
     env = os.environ.copy()
     if py_paths:
         env["PYTHONPATH"] = os.pathsep.join(py_paths)
 
     p = subprocess.Popen(argv, cwd=cwd, env=env)
-    print(f"Spawned {script} (pid={p.pid}) from {cwd or os.getcwd()}")
+    print(f"Spawned {script} (pid={p.pid}) from {cwd or os.getcwd()} with args {args or []}")
     return p
 
 

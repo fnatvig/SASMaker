@@ -1,7 +1,7 @@
 # sasmaker/simulation.py
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Any, Optional
+from typing import Callable, Dict, List, Any, Literal, Tuple
 import pandas as pd
 
 from .util import replace_nan_with_zero
@@ -81,6 +81,7 @@ class Simulation:
             # 3) solve network
             s.run_powerflow()
 
+
             # 4) tick all IEDs (may operate CBs, etc.)
             for ied in s.ieds.values():
                 ied.tick()
@@ -157,6 +158,7 @@ def sample_ieds() -> SamplerFn:
             out[f"ct:{name}:Qa_mvar"] = vals_pwr["Qa"]
             out[f"ct:{name}:Qb_mvar"] = vals_pwr["Qb"]
             out[f"ct:{name}:Qc_mvar"] = vals_pwr["Qc"]
+
             
             # Bus
             nm = ct.get_bus_name()
@@ -174,10 +176,15 @@ def sample_ieds() -> SamplerFn:
             # CBs
         for nm, cb in s.cbs.items():
             out[f"cb:{nm}:closed"] = bool(cb.closed)
-        return out
-        return out
-        
 
+        for name, vt in s.vts.items():
+
+            # VTs
+            vals = vt.read_voltage()
+            vn_kv = s.busbars[vt.get_bus_name()].vn_kv
+            out[f"vt:{vt.get_bus_name()}:vm_a_kv"] = float(vals["Va"])*vn_kv
+            out[f"vt:{vt.get_bus_name()}:vm_b_kv"] = float(vals["Vb"])*vn_kv
+            out[f"vt:{vt.get_bus_name()}:vm_c_kv"] = (vals["Vc"])*vn_kv
         return out
     return _fn
 
@@ -331,3 +338,179 @@ def inject_overcurrent_on_line_to_bus(sim: "Simulation", *,
             state["saved"].clear()
 
     sim.add_step_hook(_hook)
+
+def inject_overcurrent_on_tx_side(sim: "Simulation", *,
+                                  t0: float, duration: float,
+                                  tx_name: str,
+                                  side: Literal["hv","lv"] = "lv",
+                                  factor: float = 2.0,
+                                  debug: bool = True):
+    """
+    Scale loads connected to the HV/LV bus of transformer `tx_name` in [t0, t0+duration).
+    If that side has no loads, attach a temporary 3φ load on the *opposite* side bus to
+    force power across the transformer. Restores everything afterward.
+    """
+    import pandapower as pp
+
+    # ---------------- helpers ----------------
+    def _tx_indices_and_buses(s: "Substation") -> Tuple[int, int, int, str, str]:
+        # Resolve transformer index and its hv/lv bus indices + names
+        tx_obj = None
+        for attr in ("transformers", "txs", "trafos"):
+            d = getattr(s, attr, None)
+            if isinstance(d, dict) and tx_name in d:
+                tx_obj = d[tx_name]; break
+        if tx_obj is not None and hasattr(tx_obj, "idx"):
+            tx_idx = int(tx_obj.idx)
+        else:
+            hits = s.net.trafo.index[s.net.trafo["name"] == tx_name]
+            if len(hits) == 0:
+                raise ValueError(f"Transformer named {tx_name!r} not found.")
+            if len(hits) > 1:
+                raise ValueError(f"Multiple transformers named {tx_name!r}; use unique names.")
+            tx_idx = int(hits[0])
+
+        row = s.net.trafo.loc[tx_idx]
+        hv = int(row["hv_bus"]); lv = int(row["lv_bus"])
+        hvn = str(s.net.bus.at[hv, "name"]); lvn = str(s.net.bus.at[lv, "name"])
+        return tx_idx, hv, lv, hvn, lvn
+
+    def _rows_on_bus(s: "Substation", bidx: int):
+        al = getattr(s.net, "asymmetric_load", None)
+        if al is None or len(al) == 0:
+            return []
+        return list(al.index[al["bus"] == int(bidx)])
+
+    def _snapshot_wrapper_loads_on(s: "Substation", bidx: int):
+        saved = {}
+        for ld in getattr(s, "loads", {}).values():
+            if getattr(ld, "bus_idx", None) == int(bidx):
+                r = s.net.asymmetric_load.loc[ld.idx]
+                p0 = float(r["p_a_mw"] + r["p_b_mw"] + r["p_c_mw"])
+                q0 = float(r["q_a_mvar"] + r["q_b_mvar"] + r["q_c_mvar"])
+                saved[int(ld.idx)] = (p0, q0)
+        return saved
+
+    def _delta_p_from_res(s: "Substation", tx_idx: int) -> float:
+        # Try using res_trafo at activation step; fallback to 1 MW if absent
+        res = getattr(s.net, "res_trafo", None)
+        if res is None or tx_idx not in getattr(res, "index", []):
+            return max(factor - 1.0, 0.0) * 1.0
+        try:
+            p_side = float(res.at[tx_idx, "p_hv_mw"] if side == "hv" else res.at[tx_idx, "p_lv_mw"])
+            return max(factor - 1.0, 0.0) * max(abs(p_side), 1e-3)
+        except Exception:
+            return max(factor - 1.0, 0.0) * 1.0
+
+    # ---------------- state ----------------
+    state = {
+        "armed": False,
+        "tx_idx": None,
+        "bus_target": None, "bus_other": None,
+        "name_target": "", "name_other": "",
+        "saved": {},                 # wrapper loads on target side
+        "temp_aload_idx": None,      # idx of created temp load (if any)
+        "temp_side": None,           # "target" or "other" (we'll use "other")
+    }
+
+    # ---------------- hook ----------------
+    def _hook(s: "Substation", t: float):
+        t1 = t0 + max(duration, 0.0)
+        active = (t >= t0 - 1e-12) and (t < t1 - 1e-12)
+
+        # Resolve once
+        if state["tx_idx"] is None:
+            tx_idx, hv, lv, hvn, lvn = _tx_indices_and_buses(s)
+            state["tx_idx"] = tx_idx
+            if side == "hv":
+                state["bus_target"], state["bus_other"] = hv, lv
+                state["name_target"], state["name_other"] = hvn, lvn
+            else:
+                state["bus_target"], state["bus_other"] = lv, hv
+                state["name_target"], state["name_other"] = lvn, hvn
+            if debug:
+                print(f"[TX-OCC] target=TX:{tx_name} side={side} "
+                      f"target_bus={state['bus_target']} ({state['name_target']}), "
+                      f"other_bus={state['bus_other']} ({state['name_other']}), "
+                      f"factor={factor}, window=[{t0},{t1})")
+
+        if debug:
+            print(f"[TX-OCC] t={t:.6f} active={active}")
+
+        if active:
+            if not state["armed"]:
+                # 1) Try to scale wrapper loads on the *target* bus (your original behavior)
+                state["saved"] = _snapshot_wrapper_loads_on(s, state["bus_target"])
+                n_wrap = len(state["saved"])
+                # 2) Detect whether there are ANY asym loads on that bus at all
+                has_any = len(_rows_on_bus(s, state["bus_target"])) > 0
+                if debug:
+                    print(f"[TX-OCC] target_bus has wrapper_matched={n_wrap}, any_asym={has_any}")
+
+                # 3) If no loads exist on the *target* side, create a temp load on the *other* side
+                if not has_any and state["temp_aload_idx"] is None:
+                    dp = _delta_p_from_res(s, state["tx_idx"])
+                    if dp > 0.0:
+                        idx = pp.create_asymmetric_load(
+                            s.net, bus=int(state["bus_other"]),
+                            p_a_mw=dp/3.0, p_b_mw=dp/3.0, p_c_mw=dp/3.0,
+                            q_a_mvar=0.0,  q_b_mvar=0.0,  q_c_mvar=0.0,
+                            name=f"__occ_tx_{tx_name}_{side}_otherbus"
+                        )
+                        try:
+                            state["temp_aload_idx"] = int(idx)
+                        except Exception:
+                            state["temp_aload_idx"] = None
+                        state["temp_side"] = "other"
+                        if debug:
+                            print(f"[TX-OCC] created temp load idx={state['temp_aload_idx']} "
+                                  f"on OTHER side bus={state['bus_other']} ({state['name_other']}) "
+                                  f"ΔP≈{dp:.6f} MW")
+
+            # Reapply scaling each step for wrapper loads on target side
+            if state["saved"]:
+                for idx, (p0, q0) in state["saved"].items():
+                    p = p0 * float(factor); q = q0 * float(factor)
+                    s.net.asymmetric_load.at[idx, "p_a_mw"]   = p / 3.0
+                    s.net.asymmetric_load.at[idx, "p_b_mw"]   = p / 3.0
+                    s.net.asymmetric_load.at[idx, "p_c_mw"]   = p / 3.0
+                    s.net.asymmetric_load.at[idx, "q_a_mvar"] = q / 3.0
+                    s.net.asymmetric_load.at[idx, "q_b_mvar"] = q / 3.0
+                    s.net.asymmetric_load.at[idx, "q_c_mvar"] = q / 3.0
+                if debug:
+                    Psum = sum(p for p,_ in state["saved"].values()); Qsum = sum(q for _,q in state["saved"].values())
+                    print(f"[TX-OCC] scaled target-side wrapper loads: n={len(state['saved'])} "
+                          f"baseP={Psum:.6f} baseQ={Qsum:.6f}")
+
+            state["armed"] = True
+
+        elif state["armed"]:
+            # Restore wrapper loads on target side
+            if state["saved"]:
+                for idx, (p0, q0) in state["saved"].items():
+                    s.net.asymmetric_load.at[idx, "p_a_mw"]   = p0 / 3.0
+                    s.net.asymmetric_load.at[idx, "p_b_mw"]   = p0 / 3.0
+                    s.net.asymmetric_load.at[idx, "p_c_mw"]   = p0 / 3.0
+                    s.net.asymmetric_load.at[idx, "q_a_mvar"] = q0 / 3.0
+                    s.net.asymmetric_load.at[idx, "q_b_mvar"] = q0 / 3.0
+                    s.net.asymmetric_load.at[idx, "q_c_mvar"] = q0 / 3.0
+                if debug:
+                    print(f"[TX-OCC] restored {len(state['saved'])} target-side wrapper loads")
+                state["saved"].clear()
+
+            # Remove temp load if we created one
+            if state["temp_aload_idx"] is not None:
+                if state["temp_aload_idx"] in getattr(s.net, "asymmetric_load", getattr(sim, "EMPTY", [])):
+                    pp.drop_elements(s.net, "asymmetric_load", [state["temp_aload_idx"]])
+                if debug:
+                    print(f"[TX-OCC] removed temp load idx={state['temp_aload_idx']} (side={state['temp_side']})")
+                state["temp_aload_idx"] = None
+                state["temp_side"] = None
+
+            if debug:
+                print("[TX-OCC] window ended")
+            state["armed"] = False
+
+    sim.add_step_hook(_hook)
+
+

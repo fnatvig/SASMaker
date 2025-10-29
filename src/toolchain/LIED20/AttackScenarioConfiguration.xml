@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<attacks>
+	<attack name="modifyAttack" enable="false">
+		<condition>
+			<conditionType value="3"/>
+			<gcbName value="Meas"/>
+			<time value="5"/>
+			<payload_conditions>
+				<!--payload_condition index="1" type="string" value="string"/-->
+				<payload_condition index="1" type="numeric" value="5" operator="equal"/>
+			</payload_conditions>
+		</condition>
+		<payload>
+			<interface value="veth1.1"/>
+			<modification arrayIndex="1" modifiedValue="999999"/>
+                </payload>
+	</attack>
+        <attack name="modifyAttack" enable="false">
+                <condition>
+                        <conditionType value="1"/>
+                        <gcbName value="Alarm"/>
+			<stNum value="5"/>
+                        <sqNum value="0"/>
+                </condition>
+                <payload>
+                        <modification arrayIndex="1" modifiedValue="999999"/>
+                </payload>
+        </attack>
+
+</attacks>

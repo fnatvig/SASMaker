@@ -6,7 +6,8 @@ class Busbar:
                  draw_length: float | None = None,
                  draw_thickness: float | None = None,
                  draw_slots: int | None = None,
-                 ext_grid: bool = False):
+                 ext_grid: bool = False,
+                 draw_label: bool = True):
         self.name = name
         self._net = net
         self._devices = []
@@ -19,6 +20,7 @@ class Busbar:
         self._draw_thickness = draw_thickness
         self._ext_grid = ext_grid
         self._draw_slots = int(draw_slots) if draw_slots is not None else 1
+        self._draw_label = draw_label
 
     @property
     def idx(self) -> int: return int(self._bus_idx)

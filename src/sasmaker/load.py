@@ -5,7 +5,7 @@ random.seed(10)
 
 class Load:
     """3φ load using pandapower's asymmetric_load (per-phase P/Q)."""
-    def __init__(self, name: str, net, bus_idx: int, p_mw: float, q_mvar: float):
+    def __init__(self, name: str, net, bus_idx: int, p_mw: float, q_mvar: float, draw_label: bool = True):
         self.name = name
         self._net = net
         self._bus_idx = int(bus_idx)   # <-- backing field
@@ -14,6 +14,7 @@ class Load:
         self.fa = 0.329
         self.fb = 0.333
         self.fc = 0.338
+        self._draw_label = draw_label
 
 
         # equal per-phase split by default

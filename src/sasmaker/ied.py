@@ -20,10 +20,10 @@ class IED:
         self.ptoc = PTOC()        # can be disabled by not arming it
         self.ptrc = PTRC()
         self.xcbr = XCBR(cb) if cb else None
-        self.ct = ct.name
-        self.cb = cb.name
-        self.bb = ct.get_bus_name()
-
+        self.ct = ct.name if ct else None
+        self.cb = cb.name if cb else None
+        self.bb = ct.get_bus_name() if ct else None
+        
         # simple datapoint registry {str: callable}
         self._dp_get: Dict[str, callable] = {}
         self._dp_set: Dict[str, callable] = {}
@@ -70,6 +70,8 @@ class IED:
             trip_req = self.ptoc.evaluate(ia, ib, ic)  # OR of phases (very minimal)
 
         if self.ptrc:
+            if trip_req:
+                print(self.name + " trip")
             self.ptrc.set_trip(trip_req)
 
         if self.ptrc.trip and self.xcbr:

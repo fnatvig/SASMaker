@@ -2,6 +2,34 @@
 from .busbar import Busbar
 from .substation import Substation
 
+# --- robust coordinate setter (call this instead of child.xy = (...)) ---
+def _set_busbar_xy(sub: "Substation", bb: "Busbar", x: float, y: float) -> None:
+    x = float(x); y = float(y)
+    # 1) update Busbar object
+    if hasattr(bb, "set_xy") and callable(bb.set_xy):
+        bb.set_xy(x, y)
+    elif hasattr(bb, "x") and hasattr(bb, "y"):
+        try:
+            setattr(bb, "x", x); setattr(bb, "y", y)
+        except Exception:
+            if hasattr(bb, "_x") and hasattr(bb, "_y"):
+                bb._x, bb._y = x, y
+            else:
+                object.__setattr__(bb, "x", x); object.__setattr__(bb, "y", y)
+    elif hasattr(bb, "_x") and hasattr(bb, "_y"):
+        bb._x, bb._y = x, y
+    else:
+        object.__setattr__(bb, "x", x); object.__setattr__(bb, "y", y)
+
+    # 2) mirror to pandapower net
+    bus_df = sub.net.bus
+    if "x" not in bus_df.columns: bus_df["x"] = float("nan")
+    if "y" not in bus_df.columns: bus_df["y"] = float("nan")
+    if bb.idx not in bus_df.index:
+        raise KeyError(f"Bus index {bb.idx} not found in net.bus.index")
+    bus_df.loc[bb.idx, ["x", "y"]] = [x, y]
+
+
 def cp_xs(parent: Busbar, *, busbar_length: float) -> list[float]:
     """
     Return CP x-positions for a busbar:
@@ -17,21 +45,53 @@ def cp_xs(parent: Busbar, *, busbar_length: float) -> list[float]:
     else:
         return [x]
 
-def snap_child_to_slot(sub: Substation, parent: Busbar, child: Busbar, *,
-                       slot_idx: int, drop: float = 0.5) -> None:
+
+# --- NEW: child_slot_idx support + exact alignment math ---
+def snap_child_to_slot(
+    sub: "Substation",
+    parent: "Busbar",
+    child: "Busbar",
+    *,
+    slot_idx: int,                # parent CP to align under (0..parent_slots-1)
+    drop: float = 0.5,            # vertical distance; positive = below parent
+    busbar_length: float = 0.2,   # MUST match plot_one_line(...)
+    child_slot_idx: int | None = None,  # which child CP to use (default = “middle”)
+) -> None:
     """
-    Move 'child' busbar to be straight under the parent's chosen CP.
-    Sets child's x to CP_x and y to parent.y - drop.
+    Place 'child' so that child.CP[child_slot_idx] is exactly under parent.CP[slot_idx].
+    Works for any (odd/even) draw_slots on both parent and child.
     """
-    busbar_length = 0.1+child.draw_slots*0.1
-    cps = cp_xs(parent, busbar_length=busbar_length)
-    if slot_idx < 0 or slot_idx >= len(cps):
-        raise IndexError(f"slot_idx {slot_idx} out of range for {len(cps)} slots")
-    px, py = parent.xy
-    cx = cps[slot_idx]
-    # write directly to pp coords (that’s what plotting reads)
-    sub.net.bus.at[child.idx, "x"] = float(cx)
-    sub.net.bus.at[child.idx, "y"] = float(py - drop)
+
+    # --- parent CP target x ---
+    parent_cpx = cp_xs(parent, busbar_length=busbar_length)
+    if not (0 <= slot_idx < len(parent_cpx)):
+        raise IndexError(f"slot_idx {slot_idx} out of range for parent with {len(parent_cpx)} slots")
+    target_x = parent_cpx[slot_idx]
+
+    # --- child CP geometry ---
+    c_slots = int(getattr(child, "draw_slots", 1) or 1)
+    Lc = c_slots * busbar_length if c_slots > 0 else busbar_length
+
+    # pick default child CP if not provided:
+    if child_slot_idx is None:
+        # odd: true middle; even: left of the two middle CPs (pick 1 for the right one)
+        child_slot_idx = (c_slots // 2) if (c_slots % 2 == 1) else (c_slots // 2 - 1)
+
+    if not (0 <= child_slot_idx < c_slots):
+        raise IndexError(f"child_slot_idx {child_slot_idx} out of range for child with {c_slots} slots")
+
+    # Solve for child center x such that:
+    # child_CP[k] = (child_center - Lc/2) + (busbar_length*0.5) + k*busbar_length == target_x
+    child_center_x = target_x - (busbar_length * 0.5) - child_slot_idx * busbar_length + (Lc / 2.0)
+
+    # New coordinates (vertically below parent by 'drop')
+    _px, py = parent.xy
+    new_x = float(child_center_x)
+    new_y = float(py - drop)
+
+    # Update busbar + net
+    _set_busbar_xy(sub, child, new_x, new_y)
+
 
 def arrange_children_centered(sub: Substation, parent: Busbar, children: list[Busbar], *,
                               busbar_length: float, drop: float = 0.5) -> None:

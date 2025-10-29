@@ -71,18 +71,18 @@ sim_data = sim.run(s)
 # Export CSVs (for ied comm)
 ieds = [ied1, ied2, ied3]
 
-create_interfaces(numIEDs = len(ieds))
+# create_interfaces(numIEDs = len(ieds))
 
-for ied in ieds:
-    df = generate_values_df(sim_data, ied)
-    df.to_csv(f"./toolchain/SASMaker_{ied.name}/value.csv", header=False, index=False) 
-
-
+# for ied in ieds:
+#     df = generate_values_df(sim_data, ied)
+#     df.to_csv(f"./toolchain/SASMaker_{ied.name}/value.csv", header=False, index=False) 
 
 
-spawn_script(
-        cwd="./toolchain",
-        py_paths=["./toolchain"])
+
+
+# spawn_script(
+#         cwd="./toolchain",
+#         py_paths=["./toolchain"])
 
 # Export complete simulation
 # sim_data.to_csv("output/simulation.csv")
