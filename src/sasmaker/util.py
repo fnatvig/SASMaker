@@ -214,7 +214,7 @@ def create_interfaces(ieds):
 
     for x in range (len(ieds)):
             ied = x+1
-            print(f"Creating and enabling the virtual interface for "+str(ieds[x].name))
+            print(f"Creating and enabling the virtual interface for "+str(ieds[x].name) + " (assigned MAC address: A2:2E:D6:80:A8:"+("%02X" % ((ied*11) & 0xFF))+")")
             os.system("sudo ip link add link veth1 address 'A2:2E:D6:80:A8:"+("%02X" % ((ied*11) & 0xFF))+"' veth1."+str(ied)+" type macvlan mode bridge")
             os.system("sudo ifconfig veth1."+str(ied)+" up")
 

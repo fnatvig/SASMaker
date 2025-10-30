@@ -79,7 +79,8 @@ def pcapng_to_json(pcapng_file):
     # Ensure EpochArrivalTime exists (kept for parity with your original)
     df["EpochArrivalTime"] = df["EpochArrivalTime"]
 
-    ids = [2734-1, 2764-1, 7847-1, 7901-1, 7955-1, 8009-1, 8063-1]
+    # ids = [2734-1, 2764-1, 7847-1, 7901-1, 7955-1, 8009-1, 8063-1]
+    ids=[]
     labels = [True if i in ids else False for i in range(len(df.index))]
     df = df.assign(label=labels)
 
