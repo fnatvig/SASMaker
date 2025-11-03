@@ -2,6 +2,7 @@
  * static_model.c
  *
  * automatically generated from C:\Users\yuan.li\Documents\LIED11.iid
+ * thereafter the name has been edited to BIED100
  */
 #include "static_model.h"
 
