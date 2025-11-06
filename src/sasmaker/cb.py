@@ -44,6 +44,7 @@ class CB:
         self._line_id = int(line_id)
         self._side = side
         self._target_kind = "line"
+        self.prev_state = closed
 
         line_tbl = net.line
         bus_idx = int(line_tbl.at[self._line_id, "from_bus" if side == "from" else "to_bus"])
@@ -63,6 +64,7 @@ class CB:
         """
         self._net = net
         self._target_kind = "buslink"
+        self.prev_state = closed
 
         # --- NEW: line-backed coupler ---------------------------------------
         # Detect our new BusLink by presence of .line_idx
@@ -104,6 +106,7 @@ class CB:
         self._trafo_id = int(trafo_id)
         self._tx_side = side
         self._target_kind = "tx"
+        self.prev_state = closed
 
         tx_tbl = net.trafo
         bus_idx = int(tx_tbl.at[self._trafo_id, "hv_bus" if side == "hv" else "lv_bus"])
@@ -131,10 +134,10 @@ class CB:
             self._net.line.at[self._line_id, "in_service"] = val
         else:
             self._net.switch.at[self._sw_idx, "closed"] = val
-
     def open(self):  self.closed = False
     def close(self): self.closed = True
     def toggle(self): self.closed = not self.closed
+    
 
     # ---------------- metadata ----------------
 

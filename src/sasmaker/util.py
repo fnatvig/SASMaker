@@ -91,6 +91,7 @@ def generate_values_df(df, ied):
         df_new[col_headers[17]] = len(df)*[50.0] 
         return df_new
     else:
+        ied_trip = df[f"ied:{ied.name}:protection_tripped"].astype('int32')
         cb_status = df[f"cb:{ied.cb}:closed"].astype('int32')
         cb_tripped = list(cb_status.eq(0))
 
@@ -109,45 +110,20 @@ def generate_values_df(df, ied):
         pf = (P.abs() / S).fillna(0.0)
         df_new = pd.DataFrame()
 
-        # df_new[col_headers[0]] = list(cb_status)
-        # df_new[col_headers[1]] = len(df)*[1]
-        # df_new[col_headers[2]] = len(df)*[0]
-        # df_new[col_headers[3]] = len(df)*[1]
-        # df_new[col_headers[4]] = len(df)*["FALSE"]
-        # df_new[col_headers[5]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-        # df_new[col_headers[6]] = len(df)*[1]
-        # df_new[col_headers[7]] = len(df)*["FALSE"]
-        # df_new[col_headers[8]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
-        # df_new[col_headers[9]] = len(df)*["FALSE"]
-        
-        # # currents
-        # df_new[col_headers[10]] = list(current_a.astype('int32'))
-        # df_new[col_headers[11]] = list(current_b.astype('int32'))
-        # df_new[col_headers[12]] = list(current_c.astype('int32'))
-
-        # # voltages
-        # df_new[col_headers[13]] = list(voltage_a.astype('int32'))
-        # df_new[col_headers[14]] = list(voltage_b.astype('int32'))
-        # df_new[col_headers[15]] = list(voltage_c.astype('int32'))
-
-        # # powers
-        # df_new[col_headers[16]] = list(P.astype('int32'))
-        # df_new[col_headers[17]] = list(Q.astype('int32'))
-        
-        # # frequency
-        # df_new[col_headers[18]] = [50.0 if i!=0 else 0 for i in list(P.astype('int32'))] 
-
-        # # power factor
-        # df_new[col_headers[19]] = list(np.round(pf, decimals=2))
-
+        # should lag
         df_new[col_headers[0]] = list(cb_status)
         df_new[col_headers[1]] = len(df)*[1]
-        # df_new[col_headers[2]] = len(df)*[0]
+
         df_new[col_headers[2]] = len(df)*[1]
         df_new[col_headers[3]] = len(df)*["FALSE"]
-        df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
+
+        # should change first
+        df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in ied_trip]
+
         df_new[col_headers[5]] = len(df)*[1]
         df_new[col_headers[6]] = len(df)*["FALSE"]
+
+        # should lag
         df_new[col_headers[7]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
         df_new[col_headers[8]] = len(df)*["FALSE"]
         

@@ -144,6 +144,11 @@ def sample_ieds() -> SamplerFn:
     """All CT primary currents (kA) as flat scalars."""
     def _fn(s: "Substation") -> Dict[str, Any]:
         out: Dict[str, Any] = {}
+
+        for name, ied in s.ieds.items():
+            val = ied.ptrc.trip
+            out[f"ied:{name}:protection_tripped"] = val
+
         for name, ct in s.cts.items():
 
             # CTs
@@ -177,6 +182,7 @@ def sample_ieds() -> SamplerFn:
         for nm, cb in s.cbs.items():
             out[f"cb:{nm}:closed"] = bool(cb.closed)
 
+
         for name, vt in s.vts.items():
 
             # VTs
@@ -207,6 +213,65 @@ def evt_set_load(load_name: str, p_mw: float, q_mvar: float) -> EventFn:
 def _busname_to_idx_map(substation) -> dict:
     net = substation.net
     return {str(net.bus.at[i, "name"]): int(i) for i in net.bus.index}
+
+def trigger_busbar_protection(sim: "Simulation",
+                              ied_name: str,
+                              busbar_name: str,
+                              t0: float) -> None:
+    """
+    IED-centric busbar protection with one-step communication delay.
+
+    At time t0:
+      - `ied_name` trips its own breaker.
+
+    At time t0 + sim.dt:
+      - All other IEDs on `busbar_name` trip their breakers.
+
+    We assume:
+      - s.ieds[<name>] exists.
+      - Each IED has:
+          - .bb  (busbar name, str)
+          - .xcbr (breaker interface) with .open()
+    """
+
+    def _trip_main_ied(s: "Substation"):
+        if ied_name not in s.ieds:
+            raise KeyError(f"IED {ied_name!r} not found in substation.")
+        main_ied = s.ieds[ied_name]
+        # Optional sanity check on busbar match
+        if getattr(main_ied, "bb", None) != busbar_name:
+            raise ValueError(
+                f"IED {ied_name!r} is on busbar {main_ied.bb!r}, "
+                f"not {busbar_name!r}"
+            )
+
+        if getattr(main_ied, "xcbr", None) is not None:
+            main_ied.ptrc.set_trip(True)
+
+            # print(f"[BBAR-PROT] {ied_name} local trip on {busbar_name} at t={t0}")
+
+    def _trip_peer_ieds(s: "Substation"):
+        # All IEDs on the same busbar except the main one
+        # main_ied.xcbr.open()
+        for nm, ied in s.ieds.items():
+            # if nm == ied_name:
+            #     continue
+            if getattr(ied, "bb", None) != busbar_name:
+                continue
+            if getattr(ied, "xcbr", None) is not None:
+                ied.xcbr.open()
+                # print(f"[BBAR-PROT] {nm} trip (signalled by {ied_name}) on {busbar_name}")
+
+    # Schedule local trip at t0
+    sim.at(t0, _trip_main_ied, label=f"BBAR_main[{busbar_name}] via {ied_name}")
+
+    # Schedule peers at next simulation step (discrete one-step delay)
+    t_peers = round(t0 + sim.dt, 9)
+    sim.at(t_peers, _trip_peer_ieds, label=f"BBAR_peers[{busbar_name}] via {ied_name}")
+
+
+
+    
 
 def _loads_on_buses(substation, bus_names):
     name2idx = _busname_to_idx_map(substation)

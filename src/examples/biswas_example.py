@@ -1,7 +1,7 @@
 from sasmaker import Substation
 from sasmaker.builder import snap_child_to_slot
 from sasmaker.plotting import plot_one_line
-from sasmaker.simulation import Simulation, inject_overcurrent_on_line_to_bus, inject_overcurrent_on_tx_side, sample_ieds
+from sasmaker.simulation import Simulation, inject_overcurrent_on_line_to_bus, inject_overcurrent_on_tx_side, sample_ieds, trigger_busbar_protection
 from sasmaker.util import generate_values_df, create_interfaces, spawn_script
 
 import warnings
@@ -119,10 +119,10 @@ ct12 = s.add_ct("CT-43", l12, side="from")
 
 
 
-ied1 = s.add_ied("LIED10", ct=ct1, cb=cb1); ied1.ptoc.pickup_ka = 0.9
+ied1 = s.add_ied("LIED10", ct=ct1, cb=cb1); ied1.ptoc.pickup_ka = 2.0
 ied2 = s.add_ied("LIED20", ct=ct2, cb=cb2); ied2.ptoc.pickup_ka = 2.0
-ied3 = s.add_ied("LIED11", ct=ct3, cb=cb3); ied3.ptoc.pickup_ka = 0.5
-ied4 = s.add_ied("LIED12", ct=ct4, cb=cb4); ied4.ptoc.pickup_ka = 0.5
+ied3 = s.add_ied("LIED11", ct=ct3, cb=cb3); #ied3.ptoc.pickup_ka = 0.5
+ied4 = s.add_ied("LIED12", ct=ct4, cb=cb4); #ied4.ptoc.pickup_ka = 0.5
 ied5 = s.add_ied("LIED22", ct=ct5, cb=cb5) #; ied5.ptoc.pickup_ka = 0.20
 ied6 = s.add_ied("LIED21", ct=ct6, cb=cb6) #; ied6.ptoc.pickup_ka = 0.20
 ied7 = s.add_ied("LIED31", ct=ct7, cb=cb7) #; ied7.ptoc.pickup_ka = 0.20
@@ -132,7 +132,7 @@ ied10 = s.add_ied("LIED41", ct=ct10, cb=cb10) #; ied10.ptoc.pickup_ka = 0.20
 ied11 = s.add_ied("LIED42", ct=ct11, cb=cb11) #; ied11.ptoc.pickup_ka = 0.20
 ied12 = s.add_ied("LIED43", ct=ct12, cb=cb12) #; ied12.ptoc.pickup_ka = 0.20
 
-ied100 = s.add_ied("BIED100", ct=ct_bl1, cb=cb_bl1); ied100.ptoc.pickup_ka = 0.3
+ied100 = s.add_ied("BIED100", ct=ct_bl1, cb=cb_bl1); #ied100.ptoc.pickup_ka = 0.3
 ied200 = s.add_ied("UFIED", ct=None, cb=cb_bl2)
 
 
@@ -153,8 +153,8 @@ cbx2 = s.add_cb_tx("CB-30", tx1, side="lv")
 cbx3 = s.add_cb_tx("CB-23", tx2, side="hv")
 cbx4 = s.add_cb_tx("CB-40", tx2, side="lv")
 
-iedx1 = s.add_ied("TIED13", ct=ctx1, cb=cbx1); iedx1.ptoc.pickup_ka = 0.17
-iedx2 = s.add_ied("LIED30", ct=ctx2, cb=cbx2); iedx2.ptoc.pickup_ka = 2.0
+iedx1 = s.add_ied("TIED13", ct=ctx1, cb=cbx1); #iedx1.ptoc.pickup_ka = 0.17
+iedx2 = s.add_ied("LIED30", ct=ctx2, cb=cbx2); #iedx2.ptoc.pickup_ka = 2.0
 iedx3 = s.add_ied("TIED23", ct=ctx3, cb=cbx3) #; iedx3.ptoc.pickup_ka = 0.20
 iedx4 = s.add_ied("LIED40", ct=ctx4, cb=cbx4) #; iedx4.ptoc.pickup_ka = 0.20
 
@@ -182,10 +182,10 @@ s.add_load("Feeder 6\nPriority 6", b14,   p_mw=4.9, q_mvar=2.8)
 
 
 # --- sim ---
-sim = Simulation("step load", t_end=600, dt=1, vary_loads=True)
-inject_overcurrent_on_line_to_bus(sim, t0=10, duration=3, line_name="L3", factor=2)
-inject_overcurrent_on_line_to_bus(sim, t0=11, duration=3, line_name="L4", factor=2)
-inject_overcurrent_on_tx_side(sim, t0=11, duration=3, tx_name="T1", side="hv", factor = 10.0)
+sim_len = 100
+sim = Simulation("step load", t_end=sim_len, dt=1, vary_loads=True)
+# inject_overcurrent_on_line_to_bus(sim, t0=5, duration=3, line_name="L3", factor=2)
+trigger_busbar_protection(sim, ied_name="LIED10", busbar_name="66kV bus-1", t0=10)
 sim.add_sampler(sample_ieds())
 sim_data = sim.run(s)
 
@@ -201,12 +201,12 @@ create_interfaces(ieds)
 for ied in ieds:
     df = generate_values_df(sim_data, ied)
 
-    # df.to_csv(f"./tempdir/{ied.name}.csv", header=False, index=False)
+    df.to_csv(f"./tempdir/{ied.name}.csv", header=False, index=False)
 
     df.to_csv(f"./toolchain/{ied.name}/value.csv", header=False, index=False) 
 
 args=[ied.name for ied in ieds]
-args.append("600")
+args.append(str(sim_len))
 spawn_script(
         cwd="./toolchain",
         py_paths=["./toolchain"],
@@ -214,5 +214,5 @@ spawn_script(
 
 # --- plot ---
 ax = plot_one_line(s, line_color="#009B24", buslink_color="#555555", buslink_style="-",
-              label_buses=True, label_lines=True, label_buslinks=False)
+              label_buses=True, label_lines=False, label_buslinks=False)
 

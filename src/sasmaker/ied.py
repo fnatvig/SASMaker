@@ -24,6 +24,8 @@ class IED:
         self.cb = cb.name if cb else None
         self.bb = ct.get_bus_name() if ct else None
         
+        self._prev_trip = False
+
         # simple datapoint registry {str: callable}
         self._dp_get: Dict[str, callable] = {}
         self._dp_set: Dict[str, callable] = {}
@@ -71,8 +73,19 @@ class IED:
 
         if self.ptrc:
             if trip_req:
-                print(self.name + " trip")
-            self.ptrc.set_trip(trip_req)
+                print(self.name + " TRIP")
 
-        if self.ptrc.trip and self.xcbr:
-            self.xcbr.open()  # operate the breaker
+            # LATCH: once trip is True, it stays True until explicitly cleared
+            new_trip = self.ptrc.trip or trip_req
+            self.ptrc.set_trip(new_trip)
+
+            # --- delayed breaker operation: one timestep after trip goes True ---
+            if self.xcbr:
+                # Only open CB if trip was already True in the previous tick
+                if self._prev_trip and self.ptrc.trip:
+                    self.xcbr.open()
+
+            # Update memory for next tick
+            self._prev_trip = self.ptrc.trip
+
+

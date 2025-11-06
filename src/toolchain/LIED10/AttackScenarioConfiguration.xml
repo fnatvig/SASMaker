@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <attacks>
-	<attack name="modifyAttack" enable="true">
+	<attack name="modifyAttack" enable="false">
 		<condition>
 			<conditionType value="3"/>
 			<gcbName value="Meas"/>

@@ -44,6 +44,6 @@ class XCBR:
     def __init__(self, cb):
         self._cb = cb
 
-    def open(self):  self._cb.open()
+    def open(self): self._cb.open()
     def close(self): self._cb.close()
     def closed(self) -> bool: return self._cb.closed
