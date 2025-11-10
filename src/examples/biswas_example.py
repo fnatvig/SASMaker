@@ -182,10 +182,11 @@ s.add_load("Feeder 6\nPriority 6", b14,   p_mw=4.9, q_mvar=2.8)
 
 
 # --- sim ---
-sim_len = 100
-sim = Simulation("step load", t_end=sim_len, dt=1, vary_loads=True)
+sim_len = 60
+# sim = Simulation("step load", t_end=sim_len, dt=1.037, vary_loads=True)
+sim = Simulation("step load", t_end=sim_len, dt=0.98, vary_loads=True)
 # inject_overcurrent_on_line_to_bus(sim, t0=5, duration=3, line_name="L3", factor=2)
-trigger_busbar_protection(sim, ied_name="LIED10", busbar_name="66kV bus-1", t0=10)
+# trigger_busbar_protection(sim, ied_name="LIED10", busbar_name="66kV bus-1", t0=9)
 sim.add_sampler(sample_ieds())
 sim_data = sim.run(s)
 
@@ -196,12 +197,12 @@ ieds = [ied1, ied2, ied3, ied4,
         iedx1, iedx2, iedx3, iedx4,
         ied100, ied200] 
 
-create_interfaces(ieds)
+# create_interfaces(ieds)
 
 for ied in ieds:
     df = generate_values_df(sim_data, ied)
 
-    df.to_csv(f"./tempdir/{ied.name}.csv", header=False, index=False)
+#     df.to_csv(f"./tempdir/{ied.name}.csv", header=False, index=False)
 
     df.to_csv(f"./toolchain/{ied.name}/value.csv", header=False, index=False) 
 

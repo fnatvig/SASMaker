@@ -2,6 +2,7 @@ import sys
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.ticker import MaxNLocator
 
 fname1 = sys.argv[1]
 fname2 = sys.argv[2]
@@ -50,13 +51,14 @@ y_end = max(max(np.array(values1)[mask1]), max(np.array(values2)[mask2]))
 y_end_with_margin = y_end*1.1  
 diff = y_end_with_margin-y_end
 y_min -= diff
-plt.plot(t1, values1, 'b-*', label='Reference')
-plt.plot(t2, values2, 'r-*', label='SASMaker')
+fig, ax = plt.subplots()
+ax.plot(t1, [int(float(i)) for i in values1], 'b-*', label='Reference')
+ax.plot(t2, [int(float(i)) for i in values2], 'r-*', label='SASMaker')
 plt.ylabel(attr)
 plt.xlabel("time")
 plt.xlim((0, t_end))
 plt.ylim((y_min, y_end_with_margin))
-
-plt.legend()
+ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+ax.legend()
 plt.title(f'{attr} for {src_ied} over time')
 plt.show()
