@@ -22,8 +22,8 @@ class CT:
         self._cols_bus = {"to": ("to_bus"),
                          "from": ("from_bus")}
         
-        self._trafo_id = None          # <- add
-        self._tx_side = None           # <- add
+        self._trafo_id = None         
+        self._tx_side = None          
                      
 
     # --- configuration ---
@@ -58,7 +58,7 @@ class CT:
         if self._net is None:
             raise RuntimeError("CT not attached to any network")
 
-        # -------- Line endpoint (unchanged) --------
+        # -------- Line endpoint --------
         if self._line_id is not None:
             if self._side not in ("from", "to"):
                 raise RuntimeError("Line CT missing side ('from'/'to').")
@@ -79,7 +79,7 @@ class CT:
             if df3 is not None and self._trafo_id in df3.index:
                 if self._tx_side == "hv":
                     cols = ("i_a_hv_ka", "i_b_hv_ka", "i_c_hv_ka")
-                else:  # 'lv'
+                else:
                     cols = ("i_a_lv_ka", "i_b_lv_ka", "i_c_lv_ka")
 
                 missing = [c for c in cols if c not in df3.columns]
@@ -88,7 +88,6 @@ class CT:
                     Ib = float(df3.at[self._trafo_id, cols[1]])
                     Ic = float(df3.at[self._trafo_id, cols[2]])
                     return {"Ia": Ia, "Ib": Ib, "Ic": Ic}
-                # fall through to magnitude if columns aren’t present in your pp version
 
             # Fallback: magnitude only (2-winding)
             df2 = getattr(self._net, "res_trafo", None)
@@ -98,7 +97,7 @@ class CT:
                     I = float(df2.at[self._trafo_id, col])
                     return {"Ia": I, "Ib": I, "Ic": I}
 
-            # Optional: 3-winding magnitude (if you support CTs on 3W trafos)
+            # Optional: 3-winding magnitude
             df3w = getattr(self._net, "res_trafo3w", None)
             if df3w is not None and self._trafo_id in df3w.index:
                 side_map = {"hv": "i_hv_ka", "mv": "i_mv_ka", "lv": "i_lv_ka"}
@@ -149,10 +148,9 @@ class CT:
             # Prefer per-phase trafo results (net.res_trafo_3ph)
             df3 = getattr(self._net, "res_trafo_3ph", None)
             if df3 is not None and self._trafo_id in df3.index:
-                # Column names per pandapower docs you pasted:
+                # Column names per pandapower docs:
                 # HV: p_a_hv_mw, q_a_hv_mvar, ..., p_b_hv_mw, q_b_hv_mvar, ...
                 # LV: p_a_lv_mw, q_a_lv_mvar, ...
-                # (No MV here — MV per-phase is in res_trafo3w_3ph if you ever use that.)
                 side = self._tx_side
                 def cols(s):
                     return (

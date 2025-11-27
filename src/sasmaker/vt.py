@@ -12,9 +12,9 @@ class VT:
         self.name = name
         self._net = None
         self._line_id: Optional[int] = None
-        self._side: Optional[str] = None  # 'from' | 'to'
+        self._side: Optional[str] = None
         self._ied_name: Optional[str] = None
-        self._extra_buses: list[int] = []          # <-- NEW
+        self._extra_buses: list[int] = []
 
     # --- configuration ---
     def attach_line(self, net, line_id: int, side: str,
@@ -52,7 +52,7 @@ class VT:
     def link_buses(self) -> list[int]:
         return list(self._extra_buses)
 
-    # --- geometry helpers (unchanged) ---
+    # --- geometry helpers ---
     def endpoint_bus(self) -> int:
         if self._net is None or self._line_id is None or self._side is None:
             raise RuntimeError("VT is not attached.")
@@ -90,11 +90,6 @@ class VT:
             Vb = float(df.at[self.link_buses[0], "vm_b_pu"])
             Vc = float(df.at[self.link_buses[0], "vm_c_pu"])
             return {"Va": Va, "Vb": Vb, "Vc": Vc}
-        #     df = self._net.res_line_3ph
-        #     Ia = float(df.at[self._line_id, cA])
-        #     Ib = float(df.at[self._line_id, cB])
-        #     Ic = float(df.at[self._line_id, cC])
-        #     return {"Ia": Ia, "Ib": Ib, "Ic": Ic}
         
 
 

@@ -35,7 +35,6 @@ class CB:
         self._target_kind: TargetKind = "line"  # default for backward compat
 
     # ---------------- configuration ----------------
-
     def attach_line(self, net, line_id: int, side: str, *, closed: bool = True):
         """Create & attach a line-end CB (et='l')."""
         if side not in ("from", "to"):
@@ -66,7 +65,7 @@ class CB:
         self._target_kind = "buslink"
         self.prev_state = closed
 
-        # --- NEW: line-backed coupler ---------------------------------------
+        # --- line-backed coupler ---------------------------------------
         # Detect our new BusLink by presence of .line_idx
         if hasattr(buslink, "line_idx"):
             self._line_id = int(buslink.line_idx)
@@ -84,7 +83,7 @@ class CB:
         else:                               # raw pp.switch index
             self._sw_idx = int(buslink)
 
-        row = net.switch.loc[self._sw_idx]  # <-- your previous code
+        row = net.switch.loc[self._sw_idx]
         et = str(row["et"])
         if et != "b":
             raise ValueError(f"attach_buslink expects a bus-bus switch (et='b'), got et={et!r}")
@@ -97,7 +96,7 @@ class CB:
 
         return self
 
-    # NEW: transformer endpoint
+    # transformer endpoint
     def attach_tx(self, net, trafo_id: int, side: str, *, closed: bool = True):
         """Create & attach a transformer-end CB (et='t') on 'hv' or 'lv' bus."""
         if side not in ("hv", "lv"):
@@ -118,13 +117,12 @@ class CB:
         return self
 
     # ---------------- state ----------------
-
     @property
     def closed(self) -> bool:
         if self._target_kind == "buslink" and self._sw_idx is None:
-            # line-backed coupler: "closed" ↔ line in_service
+
             return bool(self._net.line.at[self._line_id, "in_service"])
-        # else: switch-backed or line CB
+
         return bool(self._net.switch.at[self._sw_idx, "closed"])
 
     @closed.setter
@@ -140,13 +138,11 @@ class CB:
     
 
     # ---------------- metadata ----------------
-
     @property
     def target_kind(self) -> TargetKind:
         return self._target_kind
 
     # ---------------- geometry / plotting helpers ----------------
-
     def endpoint_bus(self) -> int:
         """For line/tx CBs: return the bus at this CB's endpoint."""
         if self._target_kind == "line":

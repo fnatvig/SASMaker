@@ -34,7 +34,7 @@ fi
 
 
 
-PYVER=$(python3 --version | awk '{print $2}')   # e.g. 3.10.11
+PYVER=$(python3 --version | awk '{print $2}')
 
 
 

@@ -37,7 +37,7 @@ def sanitize_net_3ph(net):
         if "in_service" in net.bus and net.bus["in_service"].dtype != bool:
             net.bus["in_service"] = net.bus["in_service"].astype(bool)
 
-    # scan common 3φ tables
+    # scan common 3-phase tables
     for name in ("line_3ph","line","ext_grid_3ph","ext_grid",
                  "load_3ph","load","shunt_3ph","shunt",
                  "trafo_3ph","trafo","switch","impedance"):
@@ -110,20 +110,17 @@ def generate_values_df(df, ied):
         pf = (P.abs() / S).fillna(0.0)
         df_new = pd.DataFrame()
 
-        # should lag
         df_new[col_headers[0]] = list(cb_status)
         df_new[col_headers[1]] = len(df)*[1]
 
         df_new[col_headers[2]] = len(df)*[1]
         df_new[col_headers[3]] = len(df)*["FALSE"]
 
-        # should change first
         df_new[col_headers[4]] = ["TRUE" if i else "FALSE" for i in ied_trip]
 
         df_new[col_headers[5]] = len(df)*[1]
         df_new[col_headers[6]] = len(df)*["FALSE"]
 
-        # should lag
         df_new[col_headers[7]] = ["TRUE" if i else "FALSE" for i in cb_tripped]
         df_new[col_headers[8]] = len(df)*["FALSE"]
         
@@ -167,11 +164,6 @@ def create_interfaces(ieds):
 
     print("SASMaker v1.0")
     print("Interfaces Setup")
-
-    # automatic cleanup wiring
-    # atexit.register(_cleanup_interfaces, numIEDs)
-    # signal.signal(signal.SIGINT,  lambda s, f: _signal_handler(s, f, numIEDs))
-    # signal.signal(signal.SIGTERM, lambda s, f: _signal_handler(s, f, numIEDs))
 
     print("Enabling dummy kernel module")
     os.system ("sudo modprobe dummy")

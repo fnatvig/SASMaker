@@ -2,7 +2,6 @@ import pandapower as pp
 
 class Line:
     """Wraps a pandapower line; created on init."""
-
     def __init__(self, name: str, net, from_bus_idx: int, to_bus_idx: int,
                  length_km: float, std_type: str | None = None,
                  r_ohm_per_km: float | None = None,

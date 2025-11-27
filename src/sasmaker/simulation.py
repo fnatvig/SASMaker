@@ -67,7 +67,6 @@ class Simulation:
             if self.vary_loads:
                 for ld in s.loads.values():
                     ld.profile(ld.base_p, ld.base_q, t)   # or ld.vary(...) if using jitter
-                    # you'd need to store base_p/base_q in Load when you construct it
 
             # 1.5) per-step hooks (e.g., persistent injections)
             for hook in self.step_hooks:
@@ -77,10 +76,8 @@ class Simulation:
             for ev in ev_idx.get(key, []):
                 ev.fn(s)
 
-
             # 3) solve network
             s.run_powerflow()
-
 
             # 4) tick all IEDs (may operate CBs, etc.)
             for ied in s.ieds.values():
@@ -164,7 +161,6 @@ def sample_ieds() -> SamplerFn:
             out[f"ct:{name}:Qb_mvar"] = vals_pwr["Qb"]
             out[f"ct:{name}:Qc_mvar"] = vals_pwr["Qc"]
 
-            
             # Bus
             nm = ct.get_bus_name()
             bid = s.busbars[nm].idx
@@ -257,11 +253,6 @@ def trigger_busbar_protection(sim: "Simulation",
     sim.at(t_peers, _trip_peer_ieds,
            label=f"BBAR_peers[{busbar_name}] via {ied_name}")
 
-
-
-
-    
-
 def _loads_on_buses(substation, bus_names):
     name2idx = _busname_to_idx_map(substation)
     targets = {name2idx[n] for n in bus_names if n in name2idx}
@@ -275,16 +266,12 @@ def inject_overcurrent_on_buses(sim: "Simulation", *,
     """
     Exogenous 'overcurrent' by scaling all loads connected to given buses:
     P,Q := factor * P,Q during [t0, t0+duration].
-
-    - No changes to Load class required.
-    - We store/restore per-load original (P,Q) using a private attribute.
     """
     def on(s: "Substation"):
         for ld in _loads_on_buses(s, bus_names):
             # remember original once
             if not hasattr(ld, "_oc_prev"):
                 # try to read current setpoints from pp table using ld.idx
-                # Works for asymmetric_loads we created; adjust if you use another element.
                 row = s.net.asymmetric_load.loc[ld.idx]
                 p0 = float(row["p_a_mw"] + row["p_b_mw"] + row["p_c_mw"])
                 q0 = float(row["q_a_mvar"] + row["q_b_mvar"] + row["q_c_mvar"])
@@ -293,7 +280,7 @@ def inject_overcurrent_on_buses(sim: "Simulation", *,
             p_prev, q_prev = ld._oc_prev
             p_new = p_prev * float(factor)
             q_new = q_prev * float(factor)
-            # distribute equally per phase (your minimal load used equal-per-phase)
+            # distribute equally per phase
             s.net.asymmetric_load.at[ld.idx, "p_a_mw"] = p_new / 3.0
             s.net.asymmetric_load.at[ld.idx, "p_b_mw"] = p_new / 3.0
             s.net.asymmetric_load.at[ld.idx, "p_c_mw"] = p_new / 3.0
@@ -322,7 +309,7 @@ def inject_overcurrent_on_line_to_bus(sim: "Simulation", *,
                                       line_name: str, factor: float = 2.0):
     """
     Persistently scale loads on the 'to_bus' of the given line during [t0, t0+duration).
-    Works even if vary_loads=True (profiles overwrite each step); we reapply after profiles.
+    Works even if vary_loads=True (profiles overwrite each step)
     """
 
     def _to_bus_idx_and_name(s: "Substation") -> tuple[int, str]:
@@ -464,7 +451,7 @@ def inject_overcurrent_on_tx_side(sim: "Simulation", *,
         "name_target": "", "name_other": "",
         "saved": {},                 # wrapper loads on target side
         "temp_aload_idx": None,      # idx of created temp load (if any)
-        "temp_side": None,           # "target" or "other" (we'll use "other")
+        "temp_side": None,           # "target" or "other"
     }
 
     # ---------------- hook ----------------
@@ -493,7 +480,7 @@ def inject_overcurrent_on_tx_side(sim: "Simulation", *,
 
         if active:
             if not state["armed"]:
-                # 1) Try to scale wrapper loads on the *target* bus (your original behavior)
+                # 1) Try to scale wrapper loads on the *target* bus
                 state["saved"] = _snapshot_wrapper_loads_on(s, state["bus_target"])
                 n_wrap = len(state["saved"])
                 # 2) Detect whether there are ANY asym loads on that bus at all
@@ -552,7 +539,7 @@ def inject_overcurrent_on_tx_side(sim: "Simulation", *,
                     print(f"[TX-OCC] restored {len(state['saved'])} target-side wrapper loads")
                 state["saved"].clear()
 
-            # Remove temp load if we created one
+            # Remove temp load if one was created
             if state["temp_aload_idx"] is not None:
                 if state["temp_aload_idx"] in getattr(s.net, "asymmetric_load", getattr(sim, "EMPTY", [])):
                     pp.drop_elements(s.net, "asymmetric_load", [state["temp_aload_idx"]])

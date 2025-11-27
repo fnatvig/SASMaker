@@ -78,7 +78,7 @@ class Substation:
                 c_nf_per_km: float = 8.0, c0_nf_per_km: float = 5.0) -> Line:
         """
         Add a line between two busbars.
-        Uses reasonable 3φ defaults if std_type is not given.
+        Uses reasonable 3-phase defaults if std_type is not given.
         """
         if std_type is not None:
             ln = Line(name=name, net=self.net,
@@ -113,10 +113,10 @@ class Substation:
             vm_pu=1.02, va_degree=0.0, name=name, in_service=True,
             s_sc_max_mva=300.0, s_sc_min_mva=300.0,   # ~350 A at 66 kV
             rx_max=0.1, rx_min=0.1,                 # R/X = 0.1  (X/R ~ 10)
-            r0x0_max=0.4, x0x_max=1.0               # keep your zero-seq guesses if needed
+            r0x0_max=0.4, x0x_max=1.0              
         )
 
-        # replace the impedance with a short 3φ line having the same R/X
+        # replace the impedance with a short 3-phase line having the same R/X
         length_km = 0.001
         pp.create_line_from_parameters(
             self.net, from_bus=b_grid, to_bus=b_int, length_km=length_km,
@@ -131,7 +131,7 @@ class Substation:
                  vm_pu: float = 1.0, va_degree: float = 0.0,
                  in_service: bool = True, s_sc_max_mva: float = 50000,
                  s_sc_min_mva: float = 10000) -> int:
-        """Create an external grid with sane defaults for 3φ studies."""
+        """Create an external grid with sane defaults for 3-phase studies."""
         eg_idx = pp.create_ext_grid(
             self.net, at_busbar.idx,
             vm_pu=vm_pu, va_degree=va_degree, in_service=in_service, name=name,
@@ -243,7 +243,7 @@ class Substation:
         a = int(getattr(bus_a, "idx", bus_a))
         b = int(getattr(bus_b, "idx", bus_b))
         bl = BusLink(name, self.net, a, b, closed=closed)
-        self.buslinks[name] = bl          # your plotter already iterates self.buslinks
+        self.buslinks[name] = bl   
         return bl
     
     def add_cb_buslink(self, name: str, buslink: BusLink | int, *, closed: bool | None = None) -> CB:
@@ -253,16 +253,16 @@ class Substation:
         pp.switch index.
         """
         cb = CB(name).attach_buslink(self.net, buslink, closed=closed)
-        self.cbs[name] = cb               # <-- critical: put it in cbs so plotting draws it
+        self.cbs[name] = cb               
         return cb
     
     def add_ct_buslink(self, name: str, buslink: BusLink | int, *, side: Literal["from", "to"]) -> CT:
         """
-        Add a CT on a bus coupler implemented as a *short 3-φ line*.
+        Add a CT on a bus coupler implemented as a *short 3-phase line*.
 
         Accepts:
         - the BusLink object (preferred), or
-        - a raw line index (int) if you know it.
+        - a raw line index (int)
 
         NOTE: legacy switch-backed buslinks (pp.switch et='b') are NOT supported for CTs.
         """
@@ -275,7 +275,7 @@ class Substation:
             raise NotImplementedError(
                 "add_ct_buslink requires a line-backed BusLink (with .line_idx) "
                 "or a valid net.line index. Switch-backed bus-bus links (et='b') "
-                "have no currents; convert the coupler to a short 3-φ line."
+                "have no currents; convert the coupler to a short 3-phase line."
             )
         if side not in ("from", "to"):
             raise ValueError("side must be 'from' or 'to'")
@@ -292,19 +292,18 @@ class Substation:
         return sim.run(self)
 
 
-        # ----- power flow + helpers (3φ by default) -----
+        # ----- power flow + helpers (3-phase by default) -----
     def run_powerflow(self, **pp_kwargs):
         """
         Runs power flow. Defaults to three-phase.
-        Returns a tiny summary dict with 3φ min/max voltages if available.
+        Returns a tiny summary dict with 3-phase min/max voltages if available.
         """
         _dump_nan_refs(self.net)
         sanitize_net_3ph(self.net)
         if self.three_phase:
             try: 
-                pp.runpp_3ph(self.net, **pp_kwargs, max_iteration=100)
+                pp.runpp_3ph(self.net, **pp_kwargs, max_iteration=200)
             except Exception:
-                print("hej")
                 pp.runpp_3ph(self.net, init_vm_pu="results", **pp_kwargs, max_iteration=200)
             bus_tbl = getattr(self.net, "res_bus_3ph", None)
             if bus_tbl is not None and not bus_tbl.empty:
@@ -315,7 +314,7 @@ class Substation:
                 vmax = float(max(vmaxs)) if vmaxs else float("nan")
             else:
                 vmin = vmax = float("nan")
-            # line loading often not in 3φ results; return NaN if absent
+            # line loading often not in 3-phase results; return NaN if absent
             loading = float("nan")
         else:
             pp.runpp(self.net, **pp_kwargs)
@@ -328,12 +327,12 @@ class Substation:
     # Convenience: where to read results from
     @property
     def res_bus(self):
-        """Return the appropriate bus results table (3φ or 1φ)."""
+        """Return the appropriate bus results table (3-phase or 1-phase)."""
         return self.net.res_bus_3ph if self.three_phase and hasattr(self.net, "res_bus_3ph") else self.net.res_bus
 
     @property
     def res_line(self):
-        """Return the appropriate line results table (3φ or 1φ)."""
+        """Return the appropriate line results table (3-phase or 1-phase)."""
         return self.net.res_line_3ph if self.three_phase and hasattr(self.net, "res_line_3ph") else self.net.res_line
 
     # ----- optional delegate for convenience -----

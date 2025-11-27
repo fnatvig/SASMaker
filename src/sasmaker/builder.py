@@ -1,4 +1,4 @@
-# sasmaker/builders.py
+# sasmaker/builder.py
 from .busbar import Busbar
 from .substation import Substation
 
@@ -46,7 +46,6 @@ def cp_xs(parent: Busbar, *, busbar_length: float) -> list[float]:
         return [x]
 
 
-# --- NEW: child_slot_idx support + exact alignment math ---
 def snap_child_to_slot(
     sub: "Substation",
     parent: "Busbar",

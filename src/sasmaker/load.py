@@ -8,18 +8,13 @@ class Load:
     def __init__(self, name: str, net, bus_idx: int, p_mw: float, q_mvar: float, draw_label: bool = True):
         self.name = name
         self._net = net
-        self._bus_idx = int(bus_idx)   # <-- backing field
+        self._bus_idx = int(bus_idx)
         self.base_p = float(p_mw)
         self.base_q = float(q_mvar)
         self.fa = 0.329
         self.fb = 0.333
         self.fc = 0.338
         self._draw_label = draw_label
-
-
-        # equal per-phase split by default
-        # pa = p_mw / 3.0
-        # qa = q_mvar / 3.0
 
         
         # Active power split
@@ -47,8 +42,6 @@ class Load:
 
     def set_power(self, p_mw: float, q_mvar: float):
         """Overwrite per-phase powers with an equal split."""
-        # pa = p_mw / 3.0
-        # qa = q_mvar / 3.0
         temp = random.random()
         
         if temp<0.3:
@@ -83,8 +76,7 @@ class Load:
 
     def profile(self, base_p: float, base_q: float, t: float, period: float = 24.0):
         """
-        Daily sinusoidal profile. 
-        t in hours, period defaults to 24h.
+        Sinusoidal load profile
         """
         factor_p = 1.0 + 0.05*math.sin(2*math.pi * (t % period) / period)  # between 0.95 and 1.05
         factor_q = 1.0 + 0.05*math.sin(+2*math.pi * (t % period) / period + period/6)  # between 0.95 and 1.05

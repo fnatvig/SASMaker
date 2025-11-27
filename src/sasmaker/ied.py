@@ -17,7 +17,7 @@ class IED:
     def __init__(self, name: str, ct: Optional[CT] = None, cb: Optional[CB] = None):
         self.name = name
         self.mmxu = MMXU(ct) if ct else None
-        self.ptoc = PTOC()        # can be disabled by not arming it
+        self.ptoc = PTOC()
         self.ptrc = PTRC()
         self.xcbr = XCBR(cb) if cb else None
         self.ct = ct.name if ct else None

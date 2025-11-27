@@ -1,4 +1,3 @@
-# sasmaker/remote_ss_equiv_load.py
 import pandapower as pp
 import math
 from .load import Load
@@ -7,7 +6,7 @@ class RemoteSS(Load):
     def __init__(self, name: str, net, bus_idx: int, p_mw: float, q_mvar: float,
                  draw_label: bool = True,
                  vm_pu: float = 1.01,
-                 va_degree: float = 0.0,               # NEW
+                 va_degree: float = 0.0,             
                  s_sc_mva: float = 1000.0,
                  xr: float = 8.0,
                  tie_len_km: float = 0.25,
@@ -15,9 +14,8 @@ class RemoteSS(Load):
                  x0_factor: float = 3.0,
                  c_nf_per_km: float = 10.0,
                  c0_nf_per_km: float = 5.0,
-                 # --- OPTIONAL: auto-tune right now (during build) ---
-                 tune_line_id: int | None = None,      # outgoing line id (your CT line)
-                 tune_side_is_from: bool | None = None,# True if substation is line.from_bus
+                 tune_line_id: int | None = None,      
+                 tune_side_is_from: bool | None = None,
                  tune_target_p_mw: float | None = None,
                  tune_target_q_mvar: float | None = None,
                  tune_vm_bounds=(0.97, 1.06),
@@ -151,4 +149,3 @@ class RemoteSS(Load):
                     hi = mid
                 else:
                     lo = mid
-        # done; params are now “baked in” before sim

@@ -1,4 +1,4 @@
-# tx.py
+# sasmaker/tx.py
 from __future__ import annotations
 
 import pandapower as pp
@@ -211,12 +211,11 @@ class TX:
             i0_percent=0.10,
             shift_degree=0.0,
             vector_group="Dyn",
-            vk0_percent=12.0,      # default = vk_percent
-            vkr0_percent=0.25,     # default = vkr_percent
-            mag0_percent=100.0,   # NEW
+            vk0_percent=12.0,      
+            vkr0_percent=0.25,     
+            mag0_percent=100.0,   
             mag0_rx=0.1,
             si0_hv_partial=0.9,
-            # tap defaults (remove or edit if you don't want taps by default)
             tap_side="hv",
             tap_neutral=0,
             tap_min=-5,
@@ -242,7 +241,6 @@ class TX:
                 in_service=bool(in_service),
             )
         else:
-            print("hej")
             self._idx = pp.create_transformer_from_parameters(
                 net,
                 hv_bus=self._hv,

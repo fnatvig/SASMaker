@@ -1,6 +1,6 @@
 # sasmaker/buslink.py
 import pandapower as pp
-from typing import Union, Optional
+from typing import Union
 
 class BusLink:
     """
@@ -46,18 +46,17 @@ class BusLink:
         # treat "closed" as "in_service" for the line
         net.line.at[self._line_idx, "in_service"] = bool(closed)
 
-        # mark for plotting (optional: your plotter can use this to draw dashed)
+        # mark for plotting 
         try:
             # store alongside line meta so the line layer can pick it up
             net.line.at[self._line_idx, "_is_coupler"] = True
         except Exception:
             pass
 
-        # also expose a flag on the object (if you still draw from substation.buslinks)
+        # also expose a flag on the object
         self._is_coupler = True
 
     # --- compatibility helpers ------------------------------------------------
-
     @property
     def idx(self) -> int:
         """Return underlying line index (kept name 'idx' for backwards compat)."""

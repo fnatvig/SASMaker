@@ -18,7 +18,6 @@ class PTOC:
     def __init__(self, pickup_ka: float = 1.5):
         self.pickup_ka = float(pickup_ka)
         self.enabled = True
-        # per-phase enable flags if you want later
         self.enable_a = True
         self.enable_b = True
         self.enable_c = True

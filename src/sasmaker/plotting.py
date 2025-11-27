@@ -1,3 +1,4 @@
+# sasmaker/plotting.py
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle, FancyBboxPatch
 from math import isclose
@@ -83,7 +84,6 @@ def _normalize_bus_list(raw_list, substation):
 
 def _recompute_ied_center(ied_name, substation, bus_xy, bus_L, bus_T,
                           cb_plot_pos, ct_plot_pos, _ied_anchor_from_endpoint):
-    """Best-effort: compute the IED box center if it wasn't recorded."""
     ied = substation.ieds.get(ied_name)
     if ied is None:
         return None
@@ -151,7 +151,7 @@ def _recompute_ied_center(ied_name, substation, bus_xy, bus_L, bus_T,
 
 
 def plot_one_line(substation, *,
-                  busbar_length=0.2,            # ← “single” length (base unit)
+                  busbar_length=0.2,
                   busbar_thickness=0.01,
                   line_width=1.5, line_color="black",
                   buslink_width=1.0, buslink_color="#555555", buslink_style="--",
@@ -159,9 +159,9 @@ def plot_one_line(substation, *,
                   show=True):
     """One-line view with connection points (CPs) every 'busbar_length'.
        If a busbar has draw_slots = N, its visual length is N * busbar_length and it exposes N CPs:
-         single:  [½L]-[CP]-[½L]
-         double:  [½L]-[CP]-[L]-[CP]-[½L]
-         triple:  [½L]-[CP]-[L]-[CP]-[L]-[CP]-[½L]
+         single:  [0.5L]-[CP]-[0.5L]
+         double:  [0.5L]-[CP]-[L]-[CP]-[0.5L]
+         triple:  [0.5L]-[CP]-[L]-[CP]-[L]-[CP]-0.5L]
        Lines & loads start from the nearest CP on the correct edge.
     """
     fig, ax = plt.subplots(figsize=(8, 5))
@@ -235,8 +235,6 @@ def plot_one_line(substation, *,
             # deterministic: leftmost among ties
             return min(candidates)
 
-
-
     # epsilon to detect “x-aligned” (choose vertical routing)
     EPS = 1e-9
 
@@ -266,7 +264,7 @@ def plot_one_line(substation, *,
                 endpoint_anchor_x[(int(line_idx), "from")] = float(sx)
                 endpoint_anchor_x[(int(line_idx), "to")]   = float(ex)
         else:
-            # same height → horizontal edge-to-edge via projection
+            # same height -> horizontal edge-to-edge via projection
             p1 = _edge_point_towards(x1, y1, L1, T1, x2, y2)
             p2 = _edge_point_towards(x2, y2, L2, T2, x1, y1)
             ax.plot([p1[0], p2[0]], [p1[1], p2[1]], linewidth=line_width, color=line_color, zorder=2)
@@ -318,7 +316,6 @@ def plot_one_line(substation, *,
         """
         Classic transformer symbol: two circles (coils) aligned *along* the lead.
         - `size` controls overall footprint; radius is derived from it.
-        - The circles are centered on the connection axis (rotated 90° vs previous version).
         """
         L = math.hypot(dx, dy) or 1.0
         ux, uy = dx / L, dy / L          # unit vector along the lead
@@ -352,7 +349,7 @@ def plot_one_line(substation, *,
             else:
                 sx, sy, ex, ey = _vertical_segment_between(bus_xy, bus_L, bus_T, bus_CPX, _nearest_cp_x, lv, hv)
         else:
-            # same row → horizontal CP-to-CP (both on bottom edge looks neat; tweak if you prefer top/nearest)
+            # same row -> horizontal CP-to-CP
             cpx_h = _nearest_cp_x(hv, xl)
             cpx_l = _nearest_cp_x(lv, xh)
             s = _edge_point_vertical(xh, yh, Lh, Th, top=False, x_target=cpx_h)
@@ -391,7 +388,7 @@ def plot_one_line(substation, *,
     cb_plot_pos = {}  # name -> (px, py)
 
     def _draw_cb_symbol(px, py, *, closed: bool, size=0.015, color="#FF0000"):
-        # small square; filled if closed, outlined with a diagonal "gap" if open
+        # small square; filled if closed, outlined if open
         rect_x = [px - size, px + size, px + size, px - size]
         rect_y = [py - size, py - size, py + size, py + size]
         if closed:
@@ -399,16 +396,12 @@ def plot_one_line(substation, *,
         else:
             ax.fill(rect_x + [rect_x[0]], rect_y + [rect_y[0]],
                     facecolor="white", edgecolor=color, linewidth=1.2, zorder=1011)
-            # diagonal gap line
-            # ax.plot([px - size*0.7, px + size*0.7],
-            #         [py + size*0.7, py - size*0.7],
-            #         color=color, linewidth=1.2, zorder=102)
 
     for name, cb in substation.cbs.items():
         target_kind = getattr(cb, "target_kind", "line")
 
         if target_kind == "line":
-            # ----- line-end CB (your old logic, but wrapped) -----
+            # ----- line-end CB -----
             b_here = cb.endpoint_bus()
             xh, yh = bus_xy[b_here]
             Lh, Th = bus_L[b_here], bus_T[b_here]
@@ -503,7 +496,7 @@ def plot_one_line(substation, *,
             py = sy + t * dy
             cb_plot_pos[name] = (px, py)
 
-            # faint context line (same segment you used to draw the buslink)
+            # faint context line
             ax.plot([sx, ex], [sy, ey], linestyle=":", color="#888888",
                     linewidth=0.8, zorder=1, alpha=0.6)
 
@@ -561,7 +554,7 @@ def plot_one_line(substation, *,
                     ha="right", va="center", zorder=7)
 
             ct_plot_pos[name] = (px, py)
-            continue  # handled; skip the legacy stub logic
+            continue
 
         b_here = ct.endpoint_bus()
         xh, yh = bus_xy[b_here]
@@ -583,7 +576,7 @@ def plot_one_line(substation, *,
             top_edge = (b_here == bot_idx)
             target_x = shared_x
         else:
-            # (b) line endpoint: your existing logic
+            # (b) line endpoint
             try:
                 b_oth = ct.other_bus()
                 xo, yo = bus_xy[b_oth]
@@ -764,7 +757,7 @@ def plot_one_line(substation, *,
         if dev_src is not None:
             # line / tx endpoint buses (works for both)
             b_here = dev_src.endpoint_bus()
-            # Only safe for line; for trafo we'll compute anchor differently
+            # Only safe for line; different for trafo
             if hasattr(dev_src, "other_bus"):
                 try:
                     b_oth = dev_src.other_bus()
@@ -802,11 +795,6 @@ def plot_one_line(substation, *,
             cp_x, sx, sy, sign, Th = _ied_anchor_from_endpoint(b_here, b_oth)
             Lh, Th = bus_L[b_here], bus_T[b_here]
 
-        #
-
-        # cp_x, sx, sy, sign, Th = _ied_anchor_from_endpoint(b_here, b_oth)
-
-        # place IED further out than CT (order: bus -> CB -> CT -> IED)
         gap_ied = max(Th * 2.2, 0.1)
         py_ied = sy + sign*gap_ied
 
@@ -868,7 +856,6 @@ def plot_one_line(substation, *,
                 ied_name, substation, bus_xy, bus_L, bus_T, cb_plot_pos, ct_plot_pos, _ied_anchor_from_endpoint
             )
         if center is None:
-            # still nothing; skip quietly
             continue
 
         cx, cy = center

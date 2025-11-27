@@ -47,7 +47,6 @@ mask1 = [t <= t_end for t in t1]
 mask2 = [t <= t_end for t in t2]
 y_min = min(min(np.array(values1)[mask1]), min(np.array(values2)[mask2]))
 y_end = max(max(np.array(values1)[mask1]), max(np.array(values2)[mask2]))
-# Add a small margin so it doesn’t hit the plot border
 y_end_with_margin = y_end*1.1  
 diff = y_end_with_margin-y_end
 y_min -= diff
