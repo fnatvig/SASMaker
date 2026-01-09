@@ -18,7 +18,7 @@ This repository focuses on **synthetic traffic generation**. Feature extraction,
   Core SASMaker source code, including substation modeling, simulation logic, and utility functions.
 
 - `src/toolchain/`  
-  Traffic-generation toolchain components, including IED configurations and supporting code used during simulation.
+  Integrated IEC 61850 traffic-generation toolchain components adapted from an external open-source toolchain and prior work, including IED configurations and supporting code used during simulation (see `src/README.md` for details).
 
 - `src/examples/`  
   Runnable examples demonstrating how to generate synthetic IEC 61850 traffic using SASMaker.
@@ -33,12 +33,16 @@ This repository focuses on **synthetic traffic generation**. Feature extraction,
 - `src/setup_venv_linux.sh`  
   Helper script for creating a Python virtual environment on Linux/macOS.
 
-## Environment setup
+## Related repositories
 
-SASMaker requires Python 3.10.x.
+**Machine-learning evaluation and result reproduction**
+https://github.com/fnatvig/SASMakerEval
 
-From the `src/` directory, create the virtual environment using the provided setup script:
+This repository contains the scripts and instructions required to reproduce the machine-learning evaluation results reported in the paper. It operates on pre-generated feature files derived from SASMaker-generated and reference PCAPs.
 
-```bash
-./setup_venv_linux.sh
-source venv/bin/activate
+## Reference
+
+If you use SASMaker in academic work, please cite the corresponding paper:
+
+**SASMaker: A Framework for Generating Synthetic IEC 61850 Traffic from Diverse Substation Setups** *(submitted to CIGRE Paris Session 2026)*
+
