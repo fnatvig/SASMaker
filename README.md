@@ -18,7 +18,7 @@ This repository focuses on **synthetic traffic generation**. Feature extraction,
   Core SASMaker source code, including substation modeling, simulation logic, and utility functions.
 
 - `src/toolchain/`  
-  Integrated IEC 61850 traffic-generation toolchain components adapted from an external open-source toolchain and prior work, including IED configurations and supporting code used during simulation (see `src/README.md` for details).
+  Integrated IEC 61850 traffic-generation toolchain components adapted from an external open-source toolchain and prior work, including IED configurations and supporting code used during simulation (see https://github.com/smartgridadsc/IEC61850ToolChain for details).
 
 - `src/examples/`  
   Runnable examples demonstrating how to generate synthetic IEC 61850 traffic using SASMaker.
