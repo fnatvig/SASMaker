@@ -8,13 +8,13 @@ chmod +x setup_venv_linux.sh
 ./setup_venv_linux.sh
 ```
 
-## How to run minimal example
+## How to run an example
 
 
 ### macOS/Linux
 ```bash
 source venv/bin/activate
-python examples/biswas_example_short.py
+python -B examples/L1.py
 ```
 
 
