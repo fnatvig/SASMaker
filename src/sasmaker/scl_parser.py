@@ -165,7 +165,12 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
                     #instance_model.add_association(act_cb_assoc)
                 #---------------Transformer-------------------
                 elif conEq.attrib['type'] == "VTR":
-                    print("   transformer: " + conEq.attrib['name'])
+                    print("   voltage transformer: " + conEq.attrib['name'])
+                elif conEq.attrib['type'] == "CTR":
+                    print("   current transformer: " + conEq.attrib['name'])
+		#---------------Fault locator-------------------
+                elif conEq.attrib['type'] == "IFL":
+                    print("   fault locator: " + conEq.attrib['name'])
                 #---------------Other equipment-------------------
                 else:
                     print("   conductingEquipment: "+conEq.attrib['name'], conEq.attrib['type'])
