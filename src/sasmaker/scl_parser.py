@@ -25,7 +25,7 @@ root = tree.getroot()
 #Create dictionary of IEDHardwares
 IEDHardwares = {}
 #Create dictionary of IED OS
-IEDOS = {}
+#IEDOS = {}
 #Create dictionary of LDs
 LDs = {}
 #Create dictionary of Servers
@@ -36,7 +36,6 @@ APs = {}
 # Substation name and numIEDs
 
 #family = substation name
-#numIEDs = number of IEDs
 
 #------------------Communication section of the SCD file-----------------
 for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
@@ -148,7 +147,7 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
                     lnInstance = "0"
                 else:
                     lnInstance = lnIter.attrib['lnInst']
-                print('LN bay level: '+ lnIter.attrib['lnClass']+"_"+lnIter.attrib['ldInst']+"_"+lnInstance)
+                print('LN bay level, IED: '+ lnIter.attrib['iedName'] + ' LN class and LD: ' + lnIter.attrib['lnClass']+"_"+lnIter.attrib['ldInst']+"_"+lnInstance)
 
             #-----------------------------------------
             #All conducting equipment for each bay
@@ -178,4 +177,6 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
 
 #------------------IED section of the SCD file-----------------
 #Not needed?
+print('Num of IEDs: ')
+print(len(IEDHardwares))
 #--------------------------------------------------------------
