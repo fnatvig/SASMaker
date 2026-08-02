@@ -2,8 +2,10 @@
 import os
 import atexit
 import signal
+import shutil
 import sys
 import subprocess
+import time
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -320,4 +322,104 @@ def spawn_script(cwd=None, python=None, py_paths=None, args=None):
     return p
 
 
+def _stop_process(process, timeout=5):
+    """Stop a subprocess and give it a chance to finalize its output."""
+    if process is None or process.poll() is not None:
+        return
 
+    process.send_signal(signal.SIGINT)
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+def capture_to_pcap(
+    ieds,
+    duration,
+    output,
+    toolchain_directory="toolchain",
+    interface="veth1",
+    startup_timeout=5,
+):
+    """Run the existing GOOSE publishers and capture their traffic to a PCAP.
+
+    The per-IED ``value.csv`` files must already exist in ``toolchain_directory``.
+    This function owns the virtual interfaces for the duration of the run and
+    removes them before returning, including when publishing or capture fails.
+    """
+    ieds = list(ieds)
+    if not ieds:
+        raise ValueError("At least one IED is required")
+    if duration <= 0:
+        raise ValueError("duration must be greater than zero")
+
+    dumpcap = shutil.which("dumpcap")
+    if dumpcap is None:
+        raise RuntimeError(
+            "dumpcap was not found. Install Wireshark/dumpcap before exporting PCAP files."
+        )
+
+    output = Path(output).resolve()
+    if output.exists():
+        raise FileExistsError(f"Output file already exists: {output}")
+
+    toolchain_directory = Path(toolchain_directory).resolve()
+    if not (toolchain_directory / "toolchain.py").is_file():
+        raise FileNotFoundError(
+            f"toolchain.py was not found in {toolchain_directory}"
+        )
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+
+    capture_process = None
+    publisher_process = None
+    try:
+        create_interfaces(ieds)
+
+        capture_process = subprocess.Popen(
+            [dumpcap, "-q", "-F", "pcap", "-i", interface, "-w", str(output)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+
+        deadline = time.monotonic() + startup_timeout
+        while not output.exists() and capture_process.poll() is None:
+            if time.monotonic() >= deadline:
+                raise RuntimeError("Timed out while starting packet capture")
+            time.sleep(0.05)
+
+        if capture_process.poll() is not None:
+            error = capture_process.stderr.read().strip()
+            raise RuntimeError(f"dumpcap could not start: {error or 'unknown error'}")
+
+        publisher_arguments = [ied.name for ied in ieds] + [str(duration)]
+        publisher_process = spawn_script(
+            cwd=toolchain_directory,
+            py_paths=[str(toolchain_directory)],
+            args=publisher_arguments,
+        )
+        try:
+            return_code = publisher_process.wait(timeout=duration + startup_timeout + 5)
+        except subprocess.TimeoutExpired as exc:
+            _stop_process(publisher_process)
+            raise RuntimeError("GOOSE publishers did not finish in time") from exc
+
+        if return_code != 0:
+            raise RuntimeError(f"GOOSE publishers exited with status {return_code}")
+
+        if capture_process.poll() is not None:
+            error = capture_process.stderr.read().strip()
+            raise RuntimeError(
+                f"dumpcap stopped before publishing completed: {error or 'unknown error'}"
+            )
+    finally:
+        _stop_process(capture_process)
+        _cleanup_interfaces(len(ieds))
+
+    if not output.is_file() or output.stat().st_size <= 24:
+        raise RuntimeError(f"No packet data was written to {output}")
+
+    return output
