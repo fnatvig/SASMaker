@@ -1,6 +1,7 @@
 import time
 import os
 import sys
+import subprocess
 from multiprocessing import Process
 from array import *
 
@@ -9,9 +10,16 @@ milli_sec = int(round(time.time() * 1000000))/1000000
 print(milli_sec)
 
 def run_one_toolchain(folder,interface, timestamp, port,duration):
-    cmd = 'sudo ./'+folder+'/goose_publisher_toolchain '+interface+' '+str(milli_sec+2)+' '+str(port)+' '+folder+' '+duration
-    print (cmd);
-    os.system(cmd)
+    cmd = [
+        f"./{folder}/goose_publisher_toolchain",
+        interface,
+        str(milli_sec + 2),
+        str(port),
+        folder,
+        duration,
+    ]
+    print(" ".join(cmd))
+    subprocess.run(cmd, check=True)
 
 processes = []
 
@@ -43,3 +51,6 @@ for i in args:
 
 for p in processes:
    p.join()
+
+if any(p.exitcode != 0 for p in processes):
+   sys.exit(1)

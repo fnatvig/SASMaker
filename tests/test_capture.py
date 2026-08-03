@@ -3,7 +3,35 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from sasmaker.util import capture_to_pcap
+from sasmaker.util import capture_to_pcap, create_interfaces
+
+
+def test_create_interfaces_requires_installed_helper():
+    with patch("sasmaker.util.Path.is_file", return_value=False):
+        with pytest.raises(RuntimeError, match="install_workshop_networking"):
+            create_interfaces([SimpleNamespace(name="IED1")])
+
+
+def test_create_interfaces_uses_noninteractive_network_helper():
+    ieds = [SimpleNamespace(name="IED1"), SimpleNamespace(name="IED2")]
+    with (
+        patch("sasmaker.util.Path.is_file", return_value=True),
+        patch("sasmaker.util.subprocess.run") as run,
+    ):
+        create_interfaces(ieds)
+
+    run.assert_called_once_with(
+        [
+            "sudo",
+            "-n",
+            "/usr/local/libexec/sasmaker-network",
+            "create",
+            "2",
+        ],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
 
 
 def test_capture_rejects_existing_output(tmp_path):

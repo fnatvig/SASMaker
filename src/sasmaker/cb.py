@@ -19,6 +19,7 @@ class CB:
         self.name = name
         self._net = None
         self._sw_idx: Optional[int] = None
+        self.initial_closed = True
 
         # line target
         self._line_id: Optional[int] = None
@@ -41,6 +42,7 @@ class CB:
             raise ValueError("side must be 'from' or 'to'")
         self._net = net
         self._line_id = int(line_id)
+        self.initial_closed = bool(closed)
         self._side = side
         self._target_kind = "line"
         self.prev_state = closed

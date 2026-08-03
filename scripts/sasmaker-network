@@ -1,0 +1,52 @@
+#!/bin/sh
+set -eu
+
+IP=/usr/sbin/ip
+MODPROBE=/usr/sbin/modprobe
+
+if [ "$#" -ne 2 ] || ! printf '%s' "$2" | grep -Eq '^[1-9][0-9]?$'; then
+    echo "usage: sasmaker-network {create|cleanup} IED_COUNT" >&2
+    exit 2
+fi
+
+action=$1
+count=$2
+if [ "$count" -gt 64 ]; then
+    echo "IED_COUNT must be between 1 and 64" >&2
+    exit 2
+fi
+
+cleanup() {
+    i=1
+    while [ "$i" -le "$count" ]; do
+        "$IP" link delete "veth1.$i" 2>/dev/null || true
+        i=$((i + 1))
+    done
+    "$IP" link delete veth1 2>/dev/null || true
+}
+
+case "$action" in
+    cleanup)
+        cleanup
+        ;;
+    create)
+        cleanup
+        "$MODPROBE" dummy
+        "$IP" link add veth1 type dummy
+        "$IP" link set dev veth1 address A2:2E:D6:80:A8:FF
+        "$IP" addr add 192.168.1.100/24 brd + dev veth1 label veth1:0
+        "$IP" link set dev veth1 up
+        i=1
+        while [ "$i" -le "$count" ]; do
+            hex=$(printf '%02X' $((i * 11 % 256)))
+            "$IP" link add link veth1 address "A2:2E:D6:80:A8:$hex" \
+                "veth1.$i" type macvlan mode bridge
+            "$IP" link set dev "veth1.$i" up
+            i=$((i + 1))
+        done
+        ;;
+    *)
+        echo "unknown action: $action" >&2
+        exit 2
+        ;;
+esac

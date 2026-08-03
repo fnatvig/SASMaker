@@ -266,44 +266,43 @@ def generate_values_df_old(df, ied):
         return df_new
 
 def _cleanup_interfaces(numIEDs: int):
-    # Delete macvlan children first
-    for i in range(1, numIEDs + 1):
-        name = f"veth1.{i}"
-        os.system(f"sudo ip link set {name} down >/dev/null 2>&1")
-        os.system(f"sudo ip link delete {name} >/dev/null 2>&1")
-    # Then delete the parent
-    os.system("sudo ip link set veth1 down >/dev/null 2>&1")
-    os.system("sudo ip link delete veth1 >/dev/null 2>&1")
+    helper = "/usr/local/libexec/sasmaker-network"
+    if Path(helper).is_file():
+        subprocess.run(
+            ["sudo", "-n", helper, "cleanup", str(numIEDs)],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=False,
+        )
 
 def _signal_handler(sig, frame, numIEDs):
     _cleanup_interfaces(numIEDs)
     sys.exit(0)
 
 def create_interfaces(ieds):
-
     print("SASMaker v1.0")
     print("Interfaces Setup")
+    helper = Path("/usr/local/libexec/sasmaker-network")
+    if not helper.is_file():
+        raise RuntimeError(
+            "SASMaker networking is not installed. Run "
+            "'sudo ./scripts/install_workshop_networking.sh' from the repository root."
+        )
 
-    print("Enabling dummy kernel module")
-    os.system ("sudo modprobe dummy")
+    try:
+        subprocess.run(
+            ["sudo", "-n", str(helper), "create", str(len(ieds))],
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        detail = (exc.stderr or exc.stdout or "unknown error").strip()
+        raise RuntimeError(f"Could not create SASMaker interfaces: {detail}") from exc
 
-    print("Creating a virtual interface")
-    os.system ("sudo ip link add veth1 type dummy")
-
-    print("Giving the virtual interface a MAC address")
-    os.system ("sudo ifconfig veth1 hw ether A2:2E:D6:80:A8:FF")
-
-    print("Giving the interface an alias and IP address")
-    os.system ("sudo ip addr add 192.168.1.100/24 brd + dev veth1 label veth1:0")
-
-    print("put the interface up")
-    os.system ("sudo ip link set dev veth1 up")
-
-    for x in range (len(ieds)):
-            ied = x+1
-            print(f"Creating and enabling the virtual interface for "+str(ieds[x].name) + " (assigned MAC address: A2:2E:D6:80:A8:"+("%02X" % ((ied*11) & 0xFF))+")")
-            os.system("sudo ip link add link veth1 address 'A2:2E:D6:80:A8:"+("%02X" % ((ied*11) & 0xFF))+"' veth1."+str(ied)+" type macvlan mode bridge")
-            os.system("sudo ifconfig veth1."+str(ied)+" up")
+    for index, ied in enumerate(ieds, start=1):
+        mac = f"A2:2E:D6:80:A8:{(index * 11) & 0xFF:02X}"
+        print(f"Created veth1.{index} for {ied.name} ({mac})")
 
 def spawn_script(cwd=None, python=None, py_paths=None, args=None):
     script = "toolchain.py"
