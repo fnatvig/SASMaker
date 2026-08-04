@@ -121,7 +121,7 @@
 		</stop_condition>
 	</attack>
 
-<attack name="dosAttack" enable="true">
+<attack name="dosAttack" enable="false">
 		<condition>
 			<conditionType value="2" />
 			<stNum value="1" />
@@ -159,7 +159,7 @@
 		</stop_condition>
 	</attack>
 
-	<attack name="dosAttack" enable="true">
+	<attack name="dosAttack" enable="false">
 		<condition>
 			<conditionType value="2" />
 			<stNum value="1" />
@@ -197,7 +197,7 @@
 		</stop_condition>
 	</attack>
 
-	<attack name="dosAttack" enable="true">
+	<attack name="dosAttack" enable="false">
 		<condition>
 			<conditionType value="2" />
 			<stNum value="1" />

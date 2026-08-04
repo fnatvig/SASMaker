@@ -11,40 +11,71 @@ fi
 
 action=$1
 count=$2
+
 if [ "$count" -gt 64 ]; then
     echo "IED_COUNT must be between 1 and 64" >&2
+    exit 2
+fi
+
+# The helper is executed through sudo by the workshop user.
+# SUDO_UID identifies that original user.
+caller_uid=${SUDO_UID:-}
+
+if ! printf '%s' "$caller_uid" | grep -Eq '^[0-9]+$'; then
+    echo "Could not determine the calling user's UID" >&2
+    exit 2
+fi
+
+# Avoid assigning a shared namespace when invoked directly as root.
+if [ "$caller_uid" -eq 0 ]; then
+    echo "This helper must be invoked through sudo by a non-root user" >&2
+    exit 2
+fi
+
+parent="sm$caller_uid"
+
+# Linux network-interface names may contain at most 15 characters.
+if [ "${#parent}" -gt 12 ]; then
+    echo "The calling UID is too long for SASMaker interface names" >&2
     exit 2
 fi
 
 cleanup() {
     i=1
     while [ "$i" -le "$count" ]; do
-        "$IP" link delete "veth1.$i" 2>/dev/null || true
+        "$IP" link delete "$parent.$i" 2>/dev/null || true
         i=$((i + 1))
     done
-    "$IP" link delete veth1 2>/dev/null || true
+
+    "$IP" link delete "$parent" 2>/dev/null || true
 }
 
 case "$action" in
     cleanup)
         cleanup
         ;;
+
     create)
         cleanup
         "$MODPROBE" dummy
-        "$IP" link add veth1 type dummy
-        "$IP" link set dev veth1 address A2:2E:D6:80:A8:FF
-        "$IP" addr add 192.168.1.100/24 brd + dev veth1 label veth1:0
-        "$IP" link set dev veth1 up
+
+        "$IP" link add "$parent" type dummy
+        "$IP" link set dev "$parent" address A2:2E:D6:80:A8:FF
+        "$IP" link set dev "$parent" up
+
         i=1
         while [ "$i" -le "$count" ]; do
             hex=$(printf '%02X' $((i * 11 % 256)))
-            "$IP" link add link veth1 address "A2:2E:D6:80:A8:$hex" \
-                "veth1.$i" type macvlan mode bridge
-            "$IP" link set dev "veth1.$i" up
+
+            "$IP" link add link "$parent" \
+                address "A2:2E:D6:80:A8:$hex" \
+                "$parent.$i" type macvlan mode bridge
+
+            "$IP" link set dev "$parent.$i" up
             i=$((i + 1))
         done
         ;;
+
     *)
         echo "unknown action: $action" >&2
         exit 2

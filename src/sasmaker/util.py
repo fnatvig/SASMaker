@@ -265,6 +265,11 @@ def generate_values_df_old(df, ied):
 
         return df_new
 
+def _workshop_interface_name():
+    """Return the per-user parent interface managed by the root helper."""
+    return f"sm{os.getuid()}"
+
+
 def _cleanup_interfaces(numIEDs: int):
     helper = "/usr/local/libexec/sasmaker-network"
     if Path(helper).is_file():
@@ -300,11 +305,13 @@ def create_interfaces(ieds):
         detail = (exc.stderr or exc.stdout or "unknown error").strip()
         raise RuntimeError(f"Could not create SASMaker interfaces: {detail}") from exc
 
+    interface = _workshop_interface_name()
     for index, ied in enumerate(ieds, start=1):
-        mac = f"A2:2E:D6:80:A8:{(index * 11) & 0xFF:02X}"
-        print(f"Created veth1.{index} for {ied.name} ({mac})")
+        print(f"Created {interface}.{index} for {ied.name}")
 
-def spawn_script(cwd=None, python=None, py_paths=None, args=None):
+    return interface
+
+def spawn_script(cwd=None, python=None, py_paths=None, args=None, extra_env=None):
     script = "toolchain.py"
     python = python or sys.executable
     argv = [python, script]
@@ -315,6 +322,8 @@ def spawn_script(cwd=None, python=None, py_paths=None, args=None):
     env = os.environ.copy()
     if py_paths:
         env["PYTHONPATH"] = os.pathsep.join(py_paths)
+    if extra_env:
+        env.update(extra_env)
 
     p = subprocess.Popen(argv, cwd=cwd, env=env)
     print(f"Spawned {script} (pid={p.pid}) from {cwd or os.getcwd()} with args {args or []}")
@@ -339,7 +348,7 @@ def capture_to_pcap(
     duration,
     output,
     toolchain_directory="toolchain",
-    interface="veth1",
+    interface=None,
     startup_timeout=5,
 ):
     """Run the existing GOOSE publishers and capture their traffic to a PCAP.
@@ -360,22 +369,27 @@ def capture_to_pcap(
             "dumpcap was not found. Install Wireshark/dumpcap before exporting PCAP files."
         )
 
-    output = Path(output).resolve()
-    if output.exists():
-        raise FileExistsError(f"Output file already exists: {output}")
-
     toolchain_directory = Path(toolchain_directory).resolve()
     if not (toolchain_directory / "toolchain.py").is_file():
         raise FileNotFoundError(
             f"toolchain.py was not found in {toolchain_directory}"
         )
 
+    output = Path(output).resolve()
+    if output.exists():
+        raise FileExistsError(f"Refusing to overwrite existing capture: {output}")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     capture_process = None
     publisher_process = None
     try:
-        create_interfaces(ieds)
+        managed_interface = create_interfaces(ieds)
+        if interface is None:
+            interface = managed_interface
+        elif interface != managed_interface:
+            raise ValueError(
+                f"Interface must be the managed per-user interface {managed_interface!r}"
+            )
 
         capture_process = subprocess.Popen(
             [dumpcap, "-q", "-F", "pcap", "-i", interface, "-w", str(output)],
@@ -399,6 +413,7 @@ def capture_to_pcap(
             cwd=toolchain_directory,
             py_paths=[str(toolchain_directory)],
             args=publisher_arguments,
+            extra_env={"SASMAKER_INTERFACE": interface},
         )
         try:
             return_code = publisher_process.wait(timeout=duration + startup_timeout + 5)

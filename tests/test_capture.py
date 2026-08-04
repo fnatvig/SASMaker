@@ -1,3 +1,4 @@
+import os
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -18,7 +19,9 @@ def test_create_interfaces_uses_noninteractive_network_helper():
         patch("sasmaker.util.Path.is_file", return_value=True),
         patch("sasmaker.util.subprocess.run") as run,
     ):
-        create_interfaces(ieds)
+        interface = create_interfaces(ieds)
+
+    assert interface == f"sm{os.getuid()}"
 
     run.assert_called_once_with(
         [
@@ -32,6 +35,15 @@ def test_create_interfaces_uses_noninteractive_network_helper():
         text=True,
         capture_output=True,
     )
+
+
+def test_create_interfaces_uses_current_uid_for_interface_name():
+    with (
+        patch("sasmaker.util.Path.is_file", return_value=True),
+        patch("sasmaker.util.os.getuid", return_value=1002),
+        patch("sasmaker.util.subprocess.run"),
+    ):
+        assert create_interfaces([SimpleNamespace(name="IED1")]) == "sm1002"
 
 
 def test_capture_rejects_existing_output(tmp_path):
@@ -61,7 +73,9 @@ def test_capture_runs_publishers_and_cleans_up(tmp_path):
 
     with (
         patch("sasmaker.util.shutil.which", return_value="/usr/bin/dumpcap"),
-        patch("sasmaker.util.create_interfaces") as create_interfaces,
+        patch(
+            "sasmaker.util.create_interfaces", return_value=f"sm{os.getuid()}"
+        ) as create_interfaces,
         patch("sasmaker.util.subprocess.Popen", side_effect=create_capture) as popen,
         patch("sasmaker.util.spawn_script", return_value=publisher_process) as spawn_script,
         patch("sasmaker.util._cleanup_interfaces") as cleanup_interfaces,
@@ -75,13 +89,14 @@ def test_capture_runs_publishers_and_cleans_up(tmp_path):
 
     assert result == output.resolve()
     create_interfaces.assert_called_once()
+    interface = f"sm{os.getuid()}"
     assert popen.call_args.args[0] == [
         "/usr/bin/dumpcap",
         "-q",
         "-F",
         "pcap",
         "-i",
-        "veth1",
+        interface,
         "-w",
         str(output.resolve()),
     ]
@@ -89,6 +104,7 @@ def test_capture_runs_publishers_and_cleans_up(tmp_path):
         cwd=toolchain.resolve(),
         py_paths=[str(toolchain.resolve())],
         args=["IED1", "IED2", "10"],
+        extra_env={"SASMAKER_INTERFACE": interface},
     )
     cleanup_interfaces.assert_called_once_with(2)
     capture_process.send_signal.assert_called_once()
@@ -112,7 +128,7 @@ def test_capture_cleans_up_when_publisher_fails(tmp_path):
 
     with (
         patch("sasmaker.util.shutil.which", return_value="/usr/bin/dumpcap"),
-        patch("sasmaker.util.create_interfaces"),
+        patch("sasmaker.util.create_interfaces", return_value=f"sm{os.getuid()}"),
         patch("sasmaker.util.subprocess.Popen", side_effect=create_capture),
         patch("sasmaker.util.spawn_script", return_value=publisher_process),
         patch("sasmaker.util._cleanup_interfaces") as cleanup_interfaces,
@@ -127,3 +143,25 @@ def test_capture_cleans_up_when_publisher_fails(tmp_path):
 
     cleanup_interfaces.assert_called_once_with(1)
     capture_process.send_signal.assert_called_once()
+
+
+def test_capture_rejects_non_managed_interface(tmp_path):
+    toolchain = tmp_path / "toolchain"
+    toolchain.mkdir()
+    (toolchain / "toolchain.py").touch()
+
+    with (
+        patch("sasmaker.util.shutil.which", return_value="/usr/bin/dumpcap"),
+        patch("sasmaker.util.create_interfaces", return_value="sm1001"),
+        patch("sasmaker.util._cleanup_interfaces") as cleanup_interfaces,
+    ):
+        with pytest.raises(ValueError, match="managed per-user interface"):
+            capture_to_pcap(
+                [SimpleNamespace(name="IED1")],
+                10,
+                tmp_path / "capture.pcap",
+                toolchain_directory=toolchain,
+                interface="sm1002",
+            )
+
+    cleanup_interfaces.assert_called_once_with(1)

@@ -1,56 +1,76 @@
-import time
 import os
-import sys
 import subprocess
+import sys
+import time
 from multiprocessing import Process
-from array import *
 
 
-milli_sec = int(round(time.time() * 1000000))/1000000
-print(milli_sec)
+def server_port(uid, ied_index):
+    """Return an MMS port unique to the Linux user and IED."""
+    user_slot = uid - 1000
 
-def run_one_toolchain(folder,interface, timestamp, port,duration):
+    if not 1 <= user_slot <= 99:
+        raise RuntimeError(
+            f"UID {uid} is outside the supported workshop range 1001-1099"
+        )
+
+    if not 1 <= ied_index <= 98:
+        raise ValueError("IED index must be between 1 and 98")
+
+    return 10000 + (user_slot * 100) + ied_index + 1
+
+
+def run_one_toolchain(folder, interface, timestamp, port, duration):
     cmd = [
         f"./{folder}/goose_publisher_toolchain",
         interface,
-        str(milli_sec + 2),
+        str(timestamp + 2),
         str(port),
         folder,
-        duration,
+        str(duration),
     ]
+
     print(" ".join(cmd))
     subprocess.run(cmd, check=True)
 
-processes = []
 
-#Take input from user in main module
-#Hardcoded for now
+def main():
+    timestamp = int(round(time.time() * 1_000_000)) / 1_000_000
+    print(timestamp)
 
-#Folder where to grab configurations, interface, portnumber, duration
-#The folder depends on the IED so one folder per type of IED..
+    interface_base = os.environ.get("SASMAKER_INTERFACE")
+    expected_interface = f"sm{os.getuid()}"
 
-# arg1=["SASMaker_IED1", "veth1.1", "102", "20"]
-# arg2=["SASMaker_IED2", "veth1.2", "103", "20"]
-# arg3=["SASMaker_IED3", "veth1.3", "104", "20"]
+    if interface_base != expected_interface:
+        raise RuntimeError(
+            f"SASMAKER_INTERFACE must be the current user's interface "
+            f"{expected_interface}"
+        )
+
+    folders = sys.argv[1:-1]
+    duration = sys.argv[-1]
+
+    processes = []
+
+    for index, folder in enumerate(folders, start=1):
+        process = Process(
+            target=run_one_toolchain,
+            args=(
+                folder,
+                f"{interface_base}.{index}",
+                timestamp,
+                server_port(os.getuid(), index),
+                duration,
+            ),
+        )
+        process.start()
+        processes.append(process)
+
+    for process in processes:
+        process.join()
+
+    return 1 if any(process.exitcode != 0 for process in processes) else 0
 
 
-# args=[arg1,arg2, arg3]
-# print (args)
-
-args = []
-i = 1
-for arg in sys.argv[1:-1]:
-   args.append([arg, f"veth1.{i}", f"{100+i+1}", sys.argv[-1]])
-   i+=1
-
-
-for i in args:
-   p = Process(target=run_one_toolchain, args=(i[0], i[1],milli_sec,i[2],i[3]))
-   p.start()
-   processes.append(p)
-
-for p in processes:
-   p.join()
-
-if any(p.exitcode != 0 for p in processes):
-   sys.exit(1)
+if __name__ == "__main__":
+    sys.exit(main())
