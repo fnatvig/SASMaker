@@ -17,7 +17,8 @@ warnings.filterwarnings("ignore", category=MatrixRankWarning)
 
 #------------------SCD FILES------------------
 #Update the scd file below
-tree = ET.parse('../../test.scd')
+#tree = ET.parse('../../test.scd')
+tree = ET.parse('../../open_substation.scd')
 root = tree.getroot()
 
 #print(root)
@@ -32,10 +33,10 @@ LDs = {}
 Servers = {}
 #Create dictionary of APs
 APs = {}
-
-# Substation name and numIEDs
-
-#family = substation name
+#Create dictionary of busbars
+BusBars = {}
+#Create dictionary of conNodes
+ConNodes = {}
 
 #------------------Communication section of the SCD file-----------------
 for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
@@ -46,14 +47,6 @@ for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
         #The IED has not been created already
         if (not (accessPoint.attrib['iedName'] in IEDHardwares)):
             print('IED Name: '+ accessPoint.attrib['iedName'])
-            #iedAsset = lang_classes_factory.ns.IEDHardware(name = accessPoint.attrib['iedName'])
-            #instance_model.add_asset(iedAsset)
-            #iedOSAppAsset = lang_classes_factory.ns.IcsApplication(name = accessPoint.attrib['iedName']+" OS")
-            #instance_model.add_asset(iedOSAppAsset)
-            #Adding IED to IEDOS
-            #ied_iedOS_assoc = lang_classes_factory.ns.SysExecution(
-            #hostHardware = [iedAsset], sysExecutedApps = [iedOSAppAsset])
-            #instance_model.add_association(ied_iedOS_assoc)
         #The IED was already created (It communicates on multiple APs)
         else:
             #Pick out the already created assets
@@ -61,12 +54,6 @@ for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
             #iedAsset = IEDHardwares[accessPoint.attrib['iedName']]
             #iedOSAppAsset = IEDOS[accessPoint.attrib['iedName']]
 
-        #Create associations between assets
-        #ap_iedOS_assoc = lang_classes_factory.ns.ApplicationConnection(
-        #    appConnections = [aPAsset], applications = [iedOSAppAsset])
-        #subnet_ap_assoc = lang_classes_factory.ns.NetworkConnection(
-         #   networks = [subNetAsset], netConnections = [aPAsset])
-        
         #Add the associations to the model
         #instance_model.add_association(ap_iedOS_assoc)
         #instance_model.add_association(subnet_ap_assoc)
@@ -78,10 +65,16 @@ for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
         #IEDOS[accessPoint.attrib['iedName']] = iedOSAppAsset
 #----------------------------------------------------------------------------
 
+
 #------------------Substation section of the SCD file-----------------
 for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
     #Create and add substation
-    print('Substation Name'+ substatTree.attrib['name'])
+    print('Substation Name: '+ substatTree.attrib['name'])
+    #SASMaker substation name
+    substationName = substatTree.attrib['name']
+    # SASMaker Substation name and numIEDs
+    s = Substation(substationName)
+    numIEDs = len(IEDHardwares)
 
     #Finds PowerTransformers on substation and bay level
     for ptIter in substatTree.iter('{http://www.iec.ch/61850/2003/SCL}PowerTransformer'):
@@ -90,6 +83,9 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
         #trans_substat_assoc = lang_classes_factory.ns.SubstatIncludesEq(
         #substation = [substatAsset], equipment = [ptAsset])  
         #instance_model.add_association(trans_substat_assoc)
+        #All terminals in each conducting equipment
+        for terminal in ptIter.iter('{http://www.iec.ch/61850/2003/SCL}Terminal'):
+            print("   Terminal connectivityNode: " + terminal.attrib['connectivityNode'], terminal.attrib['cNodeName'])
     #Create all LNs that exist on substation level (For HMI etc)
     for lnFindAll in substatTree.findall('{http://www.iec.ch/61850/2003/SCL}LNode'):  
         #LLN0 does not have an lnInst, in this case we set the value as "0"  
@@ -150,18 +146,26 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
                 print('LN bay level, IED: '+ lnIter.attrib['iedName'] + ' LN class and LD: ' + lnIter.attrib['lnClass']+"_"+lnIter.attrib['ldInst']+"_"+lnInstance)
 
             #-----------------------------------------
+            
+            #All connectivityNodes in each bay (assming these are the busbars)
+            for connectivityNode in bayTree.iter('{http://www.iec.ch/61850/2003/SCL}ConnectivityNode'):
+            	 #try to get this nicer
+                 if (connectivityNode.attrib['name'] == "BB1"):
+                     #adding busbars 
+                     BusBars[connectivityNode.attrib['name']] = s.add_busbar(connectivityNode.attrib['name'], vn_kv=20, x=1.0, y=0.0, draw_slots=2*numIEDs-3) 
+                     vgap = 1
+                     print("   BUSBAR: "+connectivityNode.attrib['name'], connectivityNode.attrib['pathName'])
+                 else:
+                     #We assume that the connectivityNodes can be represented as lines.
+                     print ("   Bay: "+ bayTree.attrib['name'] + " LINE: "+ connectivityNode.attrib['name'])
+                     #l1 = s.add_line(connectivityNode.attrib['name'], bus, b1, length_km=0.5)
             #All conducting equipment for each bay
 
             for conEq in bayTree.iter('{http://www.iec.ch/61850/2003/SCL}ConductingEquipment'):
                 #---------------Circuit breaker-------------------
                 if conEq.attrib['type'] == "CBR":
                     print("   circuitBreaker: " + conEq.attrib['name'])
-                    #For Circuit breakers, add a ActuatorCB
-                    #actCBAsset = lang_classes_factory.ns.ActuatorCB(name = 'CB Actuator')
-                    #instance_model.add_asset(actCBAsset)
-                    #act_cb_assoc = lang_classes_factory.ns.CloseOrTrip(
-                    #actuatorCB = [actCBAsset], circuitBreaker = [eqAsset])
-                    #instance_model.add_association(act_cb_assoc)
+       
                 #---------------Transformer-------------------
                 elif conEq.attrib['type'] == "VTR":
                     print("   voltage transformer: " + conEq.attrib['name'])
@@ -173,6 +177,15 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
                 #---------------Other equipment-------------------
                 else:
                     print("   conductingEquipment: "+conEq.attrib['name'], conEq.attrib['type'])
+            #All LNodes in each conducting equipment
+                for LNode in conEq.iter('{http://www.iec.ch/61850/2003/SCL}LNode'):
+                      print("   LNode iedName: "+LNode.attrib['iedName'])
+            #All terminals in each conducting equipment
+                for terminal in conEq.iter('{http://www.iec.ch/61850/2003/SCL}Terminal'):
+                      print("   Terminal connectivityNode: " + terminal.attrib['connectivityNode'], terminal.attrib['cNodeName'])
+
+
+            
 #--------------------------------------------------------------
 
 #------------------IED section of the SCD file-----------------
@@ -180,3 +193,11 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
 print('Num of IEDs: ')
 print(len(IEDHardwares))
 #--------------------------------------------------------------
+
+#SASMaker
+
+
+
+# --- plot the substation's one-line diagram (in its final state) ---
+#ax = plot_one_line(s, line_color="#009B24", buslink_color="#555555", buslink_style="-",
+#              label_buses=True, label_lines=False, label_buslinks=False)
