@@ -40,10 +40,10 @@ ConNodes = {}
 
 #------------------Communication section of the SCD file-----------------
 for subNetwork in root.iter('{http://www.iec.ch/61850/2003/SCL}SubNetwork'):
-    print('Subnetwork Name: '+ subNetwork.attrib['name'])
+    #print('Subnetwork Name: '+ subNetwork.attrib['name'])
     for accessPoint in subNetwork.iter('{http://www.iec.ch/61850/2003/SCL}ConnectedAP'):
         #Create and add assets to the model
-        print('AP Name: '+ accessPoint.attrib['apName'])
+        #print('AP Name: '+ accessPoint.attrib['apName'])
         #The IED has not been created already
         if (not (accessPoint.attrib['iedName'] in IEDHardwares)):
             print('IED Name: '+ accessPoint.attrib['iedName'])
@@ -149,7 +149,7 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
             
             #All connectivityNodes in each bay (assming these are the busbars)
             for connectivityNode in bayTree.iter('{http://www.iec.ch/61850/2003/SCL}ConnectivityNode'):
-            	 #try to get this nicer
+            	 #TODO find the busbar without manually naming it, we assume the busbar is the bay connectivitynode with no conductingequipment.
                  if (connectivityNode.attrib['name'] == "BB1"):
                      #adding busbars 
                      BusBars[connectivityNode.attrib['name']] = s.add_busbar(connectivityNode.attrib['name'], vn_kv=20, x=1.0, y=0.0, draw_slots=2*numIEDs-3) 
@@ -158,14 +158,15 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
                  else:
                      #We assume that the connectivityNodes can be represented as lines.
                      print ("   Bay: "+ bayTree.attrib['name'] + " LINE: "+ connectivityNode.attrib['name'])
+                     #TODO add these to a dictionary? ConNodes = {}
                      #l1 = s.add_line(connectivityNode.attrib['name'], bus, b1, length_km=0.5)
+                     
             #All conducting equipment for each bay
-
+            #TODO add all of this equipment, add the lines to connect them and the IEDs that they are managed by.
             for conEq in bayTree.iter('{http://www.iec.ch/61850/2003/SCL}ConductingEquipment'):
                 #---------------Circuit breaker-------------------
                 if conEq.attrib['type'] == "CBR":
                     print("   circuitBreaker: " + conEq.attrib['name'])
-       
                 #---------------Transformer-------------------
                 elif conEq.attrib['type'] == "VTR":
                     print("   voltage transformer: " + conEq.attrib['name'])
@@ -174,15 +175,18 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
 		#---------------Fault locator-------------------
                 elif conEq.attrib['type'] == "IFL":
                     print("   fault locator: " + conEq.attrib['name'])
+                    		#---------------Fault locator-------------------
+                elif conEq.attrib['type'] == "DIS":
+                    print("   disconnector: " + conEq.attrib['name'])
                 #---------------Other equipment-------------------
                 else:
-                    print("   conductingEquipment: "+conEq.attrib['name'], conEq.attrib['type'])
+                    print("   conductingEquipment TODO: "+conEq.attrib['name'], conEq.attrib['type'])
             #All LNodes in each conducting equipment
                 for LNode in conEq.iter('{http://www.iec.ch/61850/2003/SCL}LNode'):
-                      print("   LNode iedName: "+LNode.attrib['iedName'])
+                      print("       LNode IED: "+LNode.attrib['iedName'])
             #All terminals in each conducting equipment
                 for terminal in conEq.iter('{http://www.iec.ch/61850/2003/SCL}Terminal'):
-                      print("   Terminal connectivityNode: " + terminal.attrib['connectivityNode'], terminal.attrib['cNodeName'])
+                      print("       Terminal connectivityNode: " + terminal.attrib['connectivityNode'], terminal.attrib['cNodeName'])
 
 
             
