@@ -18,6 +18,7 @@ warnings.filterwarnings("ignore", category=MatrixRankWarning)
 #------------------SCD FILES------------------
 #Update the scd file below
 #tree = ET.parse('../../test.scd')
+#https://github.com/robidev/iec61850_open_server/blob/master/scd/open_substation.scd
 tree = ET.parse('../../open_substation.scd')
 root = tree.getroot()
 
@@ -120,7 +121,7 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
     for vlTree in root.iter('{http://www.iec.ch/61850/2003/SCL}VoltageLevel'):
         #Create the Voltage Level asset and add it to the model
         print('Voltage Level: '+ vlTree.attrib['name'])
-
+	
         #Connect all voltage levels to the substation
         #vl_substat_assoc = lang_classes_factory.ns.SubstatIncludesVL(
         #    voltageLevel = [vlAsset], substation = [substatAsset])  
@@ -128,6 +129,7 @@ for substatTree in root.iter('{http://www.iec.ch/61850/2003/SCL}Substation'):
 
         #Bay
         for bayTree in vlTree.iter('{http://www.iec.ch/61850/2003/SCL}Bay'):
+
             #Create the bay and add it to the model
             print('Bay Name: '+ bayTree.attrib['name'])
           
